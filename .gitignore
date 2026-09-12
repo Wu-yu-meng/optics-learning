@@ -1,0 +1,203 @@
+# =========================
+# OS files
+# =========================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+
+# =========================
+# IDE / Editor
+# =========================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+
+# =========================
+# Environment / Secrets
+# =========================
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.crt
+
+
+# =========================
+# Logs
+# =========================
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# =========================
+# Dependencies
+# =========================
+
+node_modules/
+vendor/
+
+
+# =========================
+# Build / Output
+# =========================
+
+dist/
+build/
+out/
+target/
+coverage/
+.tmp/
+temp/
+tmp/
+
+*.cache
+
+
+# =========================
+# Node.js
+# =========================
+
+.npm/
+.yarn/
+.pnpm-store/
+
+.next/
+.nuxt/
+.output/
+.svelte-kit/
+
+.eslintcache
+.stylelintcache
+
+# Keep lock files committed
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+
+# =========================
+# Python
+# =========================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.coverage
+htmlcov/
+
+*.egg-info/
+.eggs/
+
+
+# =========================
+# Java / Kotlin
+# =========================
+
+*.class
+.gradle/
+bin/
+
+# Maven
+target/
+
+# Gradle
+build/
+
+
+# =========================
+# Go
+# =========================
+
+*.exe
+*.test
+*.out
+
+go.work.sum
+
+
+# =========================
+# Rust
+# =========================
+
+target/
+
+# Usually commit Cargo.lock for applications
+# Cargo.lock
+
+
+# =========================
+# C / C++
+# =========================
+
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.exe
+
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+
+# =========================
+# Misc
+# =========================
+
+*.bak
+*.tmp
+*.temp
+
+.cache/
+.history/
+
+参考书/
+参考论文/
+PDF索引/
