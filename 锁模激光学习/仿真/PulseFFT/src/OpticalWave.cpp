@@ -3,7 +3,7 @@
 #include "OpticsConstants.hpp"
 #include <cmath>
 
-double OpticalWave::amplitude(timetool::Timestamp now, double position)
+double OpticalWave::amplitude(timetool::Timestamp now, double position) const
 {
     //默认传播方向都是为正
     //相位的计算公式:phase = m_init_phase + w(x/c - (t - t0))
@@ -15,12 +15,12 @@ double OpticalWave::amplitude(timetool::Timestamp now, double position)
     return amplitude;
 }
 
-double OpticalWave::amplitude(double phase)
+double OpticalWave::amplitude(double phase) const
 {
     return m_amplitude * std::cos(phase);
 }
 
-double OpticalWave::phase(timetool::Timestamp now, double position)
+double OpticalWave::phase(timetool::Timestamp now, double position) const
 {
     //默认传播方向都是为正
     //相位的计算公式:phase = m_init_phase + w(x/c - (t - t0))

@@ -15,6 +15,4 @@ add_executable(${project_name} main.cpp)
 target_include_directories(${project_name}_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${project_name}_lib PUBLIC time_lib)
 
-
-
-target_link_libraries(${project_name} PRIVATE ${project_name}_lib)
+target_link_libraries(${project_name} PRIVATE ${project_name}_lib img_viz_lib)

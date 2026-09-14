@@ -16,14 +16,14 @@ public:
 
     // 给定时刻和空间位置计算电场值；position 的单位为 um，返回值为相对电场单位。
     // 实现时应将 now 换算为相对于 m_reference_time 的时间，单位为 fs。
-    double amplitude(timetool::Timestamp now,double position);
+    double amplitude(timetool::Timestamp now,double position) const;
 
     //给定相位直接计算电场值
-    double amplitude(double phase);
+    double amplitude(double phase) const;
     
     // 给定时刻和空间位置计算相位；position 的单位为 um，返回值为未归一话的相位。
     // 实现时应将 now 换算为相对于 m_reference_time 的时间，单位为 fs。
-    double phase(timetool::Timestamp now,double position);
+    double phase(timetool::Timestamp now,double position) const;
 
 private:
     double m_frequency;//频率，单位：THz
