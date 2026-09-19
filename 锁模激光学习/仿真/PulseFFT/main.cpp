@@ -25,8 +25,10 @@ constexpr double kFrequencySpacingThz = 3.0;
 constexpr double kLinearPhaseStepRad = pulsefft::constants::pi / 2.0;
 // 二次频谱相位 eta(omega) = a * (omega - omega_0)^2 中的系数 a，单位为 fs^2。
 constexpr double kQuadraticSpectralPhaseCoefficientFs2 = 80.0;
-constexpr double kCenterFrequencyThz = kFirstFrequencyThz
-    + (kWaveCount - 1) * kFrequencySpacingThz / 2.0;
+//constexpr double kCenterFrequencyThz = kFirstFrequencyThz+ (kWaveCount - 1) * kFrequencySpacingThz / 2.0;
+constexpr double kCenterFrequencyThz = 15;
+constexpr double kGaussianPulseAmplitudeAu = 1.0;
+constexpr double kGaussianPulseIntensityFwhmFs = 100.0;
 constexpr unsigned int kFixedRandomPhaseSeed = 20260912;
 constexpr unsigned int kChangingRandomPhaseSeed = 20260913;
 
@@ -72,6 +74,21 @@ void calculateSpatialFrame(
 
         electric_field[i] = total_field;
         intensity[i] = total_field * total_field;
+    }
+}
+
+void calculateSpatialFrame(
+    const Pluse& pulse,
+    timetool::Timestamp now,
+    SpatialFrame& electric_field,
+    SpatialFrame& intensity)
+{
+    for (int i = 0; i < kSampleCount; ++i)
+    {
+        const double position_um = i * kDxUm;
+        const double field = pulse.amplitude(now, position_um);
+        electric_field[i] = field;
+        intensity[i] = field * field;
     }
 }
 
@@ -202,14 +219,16 @@ int main()
         phase = phase_distribution(fixed_random_engine);
     }
 
-    const std::vector<OpticalWave> all_zero_waves =
-        createWaves(reference_time, all_zero_phases);
-    const std::vector<OpticalWave> linear_phase_waves =
-        createWaves(reference_time, linear_phases);
-    const std::vector<OpticalWave> quadratic_phase_waves =
-        createWaves(reference_time, quadratic_phases);
-    const std::vector<OpticalWave> fixed_random_phase_waves =
-        createWaves(reference_time, fixed_random_phases);
+    const std::vector<OpticalWave> all_zero_waves = createWaves(reference_time, all_zero_phases);
+    const std::vector<OpticalWave> linear_phase_waves = createWaves(reference_time, linear_phases);
+    const std::vector<OpticalWave> quadratic_phase_waves = createWaves(reference_time, quadratic_phases);
+    const std::vector<OpticalWave> fixed_random_phase_waves = createWaves(reference_time, fixed_random_phases);
+    const GaussianPluse gaussian_pulse(
+        kCenterFrequencyThz,
+        0.0,
+        kGaussianPulseAmplitudeAu,
+        kGaussianPulseIntensityFwhmFs,
+        reference_time);
     std::mt19937 changing_random_engine(kChangingRandomPhaseSeed);
 
     // 在同一个 Foxglove topic 中发布五种相位情形下 x = 0 um 处的相对光强。
@@ -241,44 +260,36 @@ int main()
         {
             phase = phase_distribution(changing_random_engine);
         }
-        const std::vector<OpticalWave> changing_random_phase_waves =
-            createWaves(reference_time, changing_random_phases);
+        const std::vector<OpticalWave> changing_random_phase_waves = createWaves(reference_time, changing_random_phases);
         calculateSpatialFrame(changing_random_phase_waves, now, E_frame, I_frame);
         const double unlocked_intensity_at_x0 = I_frame[0];
-        ImgViz::enqueue_image_copy(
-            "1 Unlocked: changing random phases, I(x)",
-            renderIntensity(I_frame));
+        ImgViz::enqueue_image_copy("1 Unlocked: changing random phases, I(x)",renderIntensity(I_frame));
 
         // 情形 2：所有模式同相，产生最理想的尖锐脉冲。
         calculateSpatialFrame(all_zero_waves, now, E_frame, I_frame);
         const double equal_phase_intensity_at_x0 = I_frame[0];
-        ImgViz::enqueue_image_copy(
-            "2 Locked: all phases equal, E(x)",
-            renderElectricField(E_frame));
-        ImgViz::enqueue_image_copy(
-            "2 Locked: all phases equal, I(x)",
-            renderIntensity(I_frame));
+        ImgViz::enqueue_image_copy("2 Locked: all phases equal, E(x)",renderElectricField(E_frame));
+        ImgViz::enqueue_image_copy("2 Locked: all phases equal, I(x)",renderIntensity(I_frame));
 
         // 情形 3：线性相位斜坡使脉冲平移，但不改变理想脉冲形状。
         calculateSpatialFrame(linear_phase_waves, now, E_frame, I_frame);
         const double linear_phase_intensity_at_x0 = I_frame[0];
-        ImgViz::enqueue_image_copy(
-            "3 Locked: linear phase ramp, I(x)",
-            renderIntensity(I_frame));
+        ImgViz::enqueue_image_copy("3 Locked: linear phase ramp, I(x)",renderIntensity(I_frame));
 
         // 情形 4：随机相位固定不变，波形重复但一般不再是尖锐脉冲。
         calculateSpatialFrame(fixed_random_phase_waves, now, E_frame, I_frame);
         const double fixed_random_phase_intensity_at_x0 = I_frame[0];
-        ImgViz::enqueue_image_copy(
-            "4 Fixed random phases, I(x)",
-            renderIntensity(I_frame));
+        ImgViz::enqueue_image_copy("4 Fixed random phases, I(x)",renderIntensity(I_frame));
 
         // 情形 5：二次频谱相位保持稳定，但使不同频率具有不同延迟，脉冲发生展宽。
         calculateSpatialFrame(quadratic_phase_waves, now, E_frame, I_frame);
         const double quadratic_phase_intensity_at_x0 = I_frame[0];
-        ImgViz::enqueue_image_copy(
-            "5 Locked but chirped: quadratic spectral phase, I(x)",
-            renderIntensity(I_frame));
+        ImgViz::enqueue_image_copy("5 Locked but chirped: quadratic spectral phase, I(x)",renderIntensity(I_frame));
+
+        // 高斯脉冲：显示包络内部的载波电场以及其瞬时电场平方。
+        calculateSpatialFrame(gaussian_pulse, now, E_frame, I_frame);
+        ImgViz::enqueue_image_copy("6 Gaussian pulse, E(x)",renderElectricField(E_frame));
+        ImgViz::enqueue_image_copy("6 Gaussian pulse, I(x)",renderIntensity(I_frame));
 
         intensity_at_x0_publisher->publish_with_time(
             now,
