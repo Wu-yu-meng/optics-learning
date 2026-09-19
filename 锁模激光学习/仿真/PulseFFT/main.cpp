@@ -26,11 +26,13 @@ constexpr double kLinearPhaseStepRad = pulsefft::constants::pi / 2.0;
 // 二次频谱相位 eta(omega) = a * (omega - omega_0)^2 中的系数 a，单位为 fs^2。
 constexpr double kQuadraticSpectralPhaseCoefficientFs2 = 80.0;
 //constexpr double kCenterFrequencyThz = kFirstFrequencyThz+ (kWaveCount - 1) * kFrequencySpacingThz / 2.0;
-constexpr double kCenterFrequencyThz = 15;
+constexpr double kCenterFrequencyThz = 500;
 constexpr double kGaussianPulseAmplitudeAu = 1.0;
 constexpr double kGaussianPulseIntensityFwhmFs = 100.0;
+constexpr double kNonuniformFrequencyJitterThz = 0.8;
 constexpr unsigned int kFixedRandomPhaseSeed = 20260912;
 constexpr unsigned int kChangingRandomPhaseSeed = 20260913;
+constexpr unsigned int kNonuniformFrequencySeed = 20260914;
 
 using PhaseArray = std::array<double, kWaveCount>;
 using SpatialFrame = std::array<double, kSampleCount>;
@@ -49,6 +51,32 @@ std::vector<OpticalWave> createWaves(
         waves.emplace_back(
             frequency_thz,
             initial_phases[wave_index],
+            1.0,
+            reference_time);
+    }
+
+    return waves;
+}
+
+std::vector<OpticalWave> createNonuniformFrequencyWaves(
+    timetool::Timestamp reference_time)
+{
+    std::vector<OpticalWave> waves;
+    waves.reserve(kWaveCount);
+
+    std::mt19937 frequency_engine(kNonuniformFrequencySeed);
+    std::uniform_real_distribution<double> frequency_jitter_distribution(
+        -kNonuniformFrequencyJitterThz,
+        kNonuniformFrequencyJitterThz);
+
+    for (int wave_index = 0; wave_index < kWaveCount; ++wave_index)
+    {
+        const double frequency_thz = kFirstFrequencyThz
+                                     + wave_index * kFrequencySpacingThz
+                                     + frequency_jitter_distribution(frequency_engine);
+        waves.emplace_back(
+            frequency_thz,
+            0.0,
             1.0,
             reference_time);
     }
@@ -223,6 +251,8 @@ int main()
     const std::vector<OpticalWave> linear_phase_waves = createWaves(reference_time, linear_phases);
     const std::vector<OpticalWave> quadratic_phase_waves = createWaves(reference_time, quadratic_phases);
     const std::vector<OpticalWave> fixed_random_phase_waves = createWaves(reference_time, fixed_random_phases);
+    const std::vector<OpticalWave> nonuniform_frequency_zero_phase_waves =
+        createNonuniformFrequencyWaves(reference_time);
     const GaussianPluse gaussian_pulse(
         kCenterFrequencyThz,
         0.0,
@@ -231,16 +261,17 @@ int main()
         reference_time);
     std::mt19937 changing_random_engine(kChangingRandomPhaseSeed);
 
-    // 在同一个 Foxglove topic 中发布五种相位情形下 x = 0 um 处的相对光强。
+    // 在同一个 Foxglove topic 中发布六种纵模情形下 x = 0 um 处的相对光强。
     auto intensity_at_x0_publisher = foxglove_viz::global_foxglove_server()
-        .create_publisher<double, double, double, double, double>(
+        .create_publisher<double, double, double, double, double, double>(
             "/pulse/intensity_at_x0",
             {
                 "unlocked_changing_phase_au",
                 "locked_equal_phase_au",
                 "locked_linear_phase_au",
                 "fixed_random_phase_au",
-                "locked_quadratic_phase_au"
+                "locked_quadratic_phase_au",
+                "nonuniform_frequency_zero_phase_au"
             });
 
     // 坐标轴：0 ~ 599.95 um，步长 0.05 um；共 12000 个空间采样点。
@@ -286,10 +317,20 @@ int main()
         const double quadratic_phase_intensity_at_x0 = I_frame[0];
         ImgViz::enqueue_image_copy("5 Locked but chirped: quadratic spectral phase, I(x)",renderIntensity(I_frame));
 
-        // 高斯脉冲：显示包络内部的载波电场以及其瞬时电场平方。
+        // 情形 6：所有模式初始相位为 0，但频率间隔不再相等。
+        calculateSpatialFrame(nonuniform_frequency_zero_phase_waves, now, E_frame, I_frame);
+        const double nonuniform_frequency_intensity_at_x0 = I_frame[0];
+        ImgViz::enqueue_image_copy(
+            "6 Nonuniform frequencies: all phases zero, E(x)",
+            renderElectricField(E_frame));
+        ImgViz::enqueue_image_copy(
+            "6 Nonuniform frequencies: all phases zero, I(x)",
+            renderIntensity(I_frame));
+
+        // 情形 7：高斯脉冲，显示包络内部的载波电场以及其瞬时电场平方。
         calculateSpatialFrame(gaussian_pulse, now, E_frame, I_frame);
-        ImgViz::enqueue_image_copy("6 Gaussian pulse, E(x)",renderElectricField(E_frame));
-        ImgViz::enqueue_image_copy("6 Gaussian pulse, I(x)",renderIntensity(I_frame));
+        ImgViz::enqueue_image_copy("7 Gaussian pulse, E(x)",renderElectricField(E_frame));
+        ImgViz::enqueue_image_copy("7 Gaussian pulse, I(x)",renderIntensity(I_frame));
 
         intensity_at_x0_publisher->publish_with_time(
             now,
@@ -297,7 +338,8 @@ int main()
             equal_phase_intensity_at_x0,
             linear_phase_intensity_at_x0,
             fixed_random_phase_intensity_at_x0,
-            quadratic_phase_intensity_at_x0);
+            quadratic_phase_intensity_at_x0,
+            nonuniform_frequency_intensity_at_x0);
 
         // 防止计算循环占满一个 CPU 核；可视化线程会显示最新提交的帧。
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
