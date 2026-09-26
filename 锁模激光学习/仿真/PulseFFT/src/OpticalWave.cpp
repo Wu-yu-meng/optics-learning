@@ -69,7 +69,9 @@ std::complex<double> GaussianPluse::envelope(timetool::Timestamp now, double pos
 
     //高斯电场包络计算；m_pulse_width_fs 表示光强的半峰全宽
     double normalized_time = time_fs / m_pulse_width_fs;
-    double envelope_amplitude = std::exp(
-        -2.0 * std::log(2.0) * normalized_time * normalized_time);
+
+    //计算包络：exp(-2 * log(2) * 归一化时间^2 )
+    double envelope_amplitude = std::exp(-2.0 * std::log(2.0) * normalized_time * normalized_time);
+    
     return std::complex<double>(envelope_amplitude,0.0);//高斯包络是没有额外的相位的
 }

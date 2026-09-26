@@ -1,6 +1,6 @@
 set(lib_name img_viz)
 
-find_package(OpenCV REQUIRED COMPONENTS core highgui)
+find_package(OpenCV REQUIRED COMPONENTS core highgui imgproc)
 
 add_library(${lib_name}_lib SHARED
     src/img_viz.cpp
