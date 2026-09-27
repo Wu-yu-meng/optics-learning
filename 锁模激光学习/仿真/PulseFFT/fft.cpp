@@ -27,7 +27,7 @@ int main()
 
     //设置采样参数
     const int sample_size = 1000;//采样数目：1000
-    const double sample_stride_fs = 0.9;//采样间隔（映射后）：0.5fs
+    const double sample_stride_fs = 0.5;//采样间隔（映射后）：0.5fs
     std::array<double,sample_size> gaussian_pluse_sample;//采样队列
     
     //在0位置进行采样
