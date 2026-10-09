@@ -1,0 +1,17 @@
+{
+    "scientific_constants":
+    {
+        "light_speed":299792458.0
+    },
+    
+    "init_gauss_optical_field":
+    {
+        "wave_length_nm":1550,
+        "sample_stride_fs":1.0,
+        "sample_size":4096,
+        "fwhm_time_fs":100.0,
+        "peak_power_w":1.0,
+        "polarization_angle_deg":45.0,
+        "relative_phase_deg":0.0
+    }
+}

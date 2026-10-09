@@ -1,3 +1,4 @@
+#include"OpticalField.hpp"
 int main(int argc, char const *argv[])
 {
     
