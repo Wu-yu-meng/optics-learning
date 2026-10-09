@@ -4,3 +4,4 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(utility)
 add_subdirectory(PulseFFT)
+add_subdirectory(AutomaticModeLocked)
