@@ -7,7 +7,7 @@ class OC
 public:
     struct OutputField
     {
-        OpticalField cavity;//腔内光场
+        OpticalField cavity;//腔内光场  
         OpticalField extracted;//输出光场
     };
     OC(double cavity_ratio,double power_transmittance);

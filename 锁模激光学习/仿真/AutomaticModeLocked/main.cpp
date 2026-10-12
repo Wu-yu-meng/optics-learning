@@ -1,5 +1,6 @@
 #include "OpticalField.hpp"
 #include "OC.hpp"
+#include "PD.hpp"
 
 //目前想法是分为如下的部分进行仿真：
 //WDM：不仿真
@@ -19,7 +20,9 @@ int main()
 
     OpticalField init_optical_field =  init_gauss_optical_field();
     OC oc(0.9,0.98);
+    PD pd(45.0);
     OC::OutputField oc_output = oc.propagate(init_optical_field);
+    OpticalField pd_output = pd.propagate(oc_output.cavity);
     
     return 0;
 
