@@ -1,6 +1,11 @@
 #include "OpticalField.hpp"
 #include "OC.hpp"
 #include "PD.hpp"
+#include "EDF.hpp"
+#include <chrono>
+#include <iostream>
+#include <thread>
+
 
 //目前想法是分为如下的部分进行仿真：
 //WDM：不仿真
@@ -21,9 +26,18 @@ int main()
     OpticalField init_optical_field =  init_gauss_optical_field();
     OC oc(0.9,0.98);
     PD pd(45.0);
-    OC::OutputField oc_output = oc.propagate(init_optical_field);
-    OpticalField pd_output = pd.propagate(oc_output.cavity);
-    
+    EDF edf(1.0,100,40);
+
+    while (true)
+    {
+        OC::OutputField oc_output = oc.propagate(init_optical_field);
+        OpticalField pd_output = pd.propagate(oc_output.cavity);
+        OpticalField edf_output = edf.propagate(pd_output);
+
+        //std::cout<<edf_output.polarization()<<std::endl;
+        //std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
     return 0;
 
 }
