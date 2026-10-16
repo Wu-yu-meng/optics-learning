@@ -2,6 +2,7 @@
 #include "OC.hpp"
 #include "PD.hpp"
 #include "EDF.hpp"
+#include "EPC.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -27,11 +28,18 @@ int main()
     OC oc(0.9,0.98);
     PD pd(45.0);
     EDF edf(1.0,100,40);
+    EPC epc({
+        {0, 0.0, 0.0},
+        {1, 45.0, 0.0},
+        {2, 0.0, 0.0},
+        {3, 45.0, 0.0},
+    });
 
     while (true)
     {
         OC::OutputField oc_output = oc.propagate(init_optical_field);
-        OpticalField pd_output = pd.propagate(oc_output.cavity);
+        OpticalField epc_output = epc.propagate(oc_output.cavity);
+        OpticalField pd_output = pd.propagate(epc_output);
         OpticalField edf_output = edf.propagate(pd_output);
 
         //std::cout<<edf_output.polarization()<<std::endl;
