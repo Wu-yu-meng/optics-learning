@@ -1,16 +1,32 @@
 #pragma once
 #include "OpticalField.hpp"
-//EDF只考虑其增益效果，不考虑其作为光纤的Kerr效应和二阶色散
-//采用的模型为小信号增益
+#include <cstdint>
+#include <random>
+
+// EDF考虑有限带宽饱和增益与ASE噪声，暂不考虑其自身的Kerr效应和色散。
 
 class EDF
 {
 public:
-    EDF(double g_0, double E_sat, double length);//构造函数，单位依次为m^-1、pJ、m
-    OpticalField propagate(const OpticalField& input_optical_field) const;//EDF传播函数
+    // 单位依次为m^-1、pJ、m、pJ/次传播、THz。
+    EDF(
+        double g_0,
+        double E_sat,
+        double length,
+        double ase_noise_energy_pj_per_pass = 0.0,
+        double gain_bandwidth_thz = 4.0,
+        std::uint64_t random_seed = 20261018);
+
+    // 噪声会修改随机数生成器的状态，因此传播函数不是const。
+    OpticalField propagate(const OpticalField& input_optical_field);
+    void reset_noise();//将随机数生成器恢复到初始种子，便于重复实验。
 
 private:
     double m_g_0;//小信号增益m^-1
     double m_E_sat;//饱和脉冲能量pJ
     double m_length;//长度m
+    double m_ase_noise_energy_pj_per_pass;//EDF每次传播后加入的ASE噪声总能量pJ
+    double m_gain_bandwidth_thz;//EDF增益系数谱和ASE功率谱的半高全宽THz
+    std::uint64_t m_random_seed;//随机数种子
+    std::mt19937_64 m_random_engine;//噪声随机数生成器
 };
