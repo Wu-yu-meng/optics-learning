@@ -27,8 +27,8 @@ int main()
 
     OC oc(0.9,0.98);
     PD pd(45.0);
-    EDF edf(1.0,100,40);
-    SMF smf(1.3e-3, 5.0);
+    EDF edf(1.0,100,1.0);
+    SMF smf(1.3e-3, 5.0,0.0);
     EPC epc({
         {0, 0.0, 0.0},
         {1, 45.0, 0.0},
@@ -36,14 +36,20 @@ int main()
         {3, 45.0, 0.0},
     });
 
-    OpticalField init_optical_field =  init_gauss_optical_field();//初始化随机的光场
+    OpticalField optical_field =  init_gauss_optical_field();//初始化高斯光场
+    OpticalField oc_extracted_field =  init_gauss_optical_field();//OC的分光
+    size_t loop_count = 0;//腔内循环次数
+    //顺序：EDF->EPC->OC->PD->SMF
     while (true)
     {
-        OC::OutputField oc_output = oc.propagate(init_optical_field);
-        OpticalField epc_output = epc.propagate(oc_output.cavity);
-        OpticalField pd_output = pd.propagate(epc_output);
-        OpticalField edf_output = edf.propagate(pd_output);
-        OpticalField smf_output = smf.propagate(edf_output);
+        OpticalField edf_output = edf.propagate(optical_field);
+        OpticalField epc_output = epc.propagate(edf_output);
+        OC::OutputField oc_output = oc.propagate(epc_output);
+        oc_extracted_field = oc_output.extracted;
+        OpticalField pd_output = pd.propagate(oc_output.cavity);
+        OpticalField smf_output = smf.propagate(pd_output);
+        optical_field = smf_output;
+        loop_count++;
     }
 
     return 0;

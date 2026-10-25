@@ -7,7 +7,7 @@
 class OpticalField
 {
 public:
-    //使用矩阵表示xy方向的偏振采样，第一行为x,第二行为y。单位为根号w
+    //使用矩阵表示xy方向的偏振采样，第一行为x,第二行为y。单位为根号
     using Polarization = Eigen::Matrix<std::complex<double>,2,Eigen::Dynamic>;
     
     struct BasicInfo
@@ -20,6 +20,7 @@ public:
     };
 
     OpticalField(Polarization polarization, BasicInfo basic_info);//构造函数
+    OpticalField() = delete;
     const Polarization& polarization() const;//返回偏振采样队列
     const BasicInfo& basic_info() const;//返回光场的基本参数
 private:

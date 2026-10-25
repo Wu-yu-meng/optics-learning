@@ -4,6 +4,7 @@ set(project_name AutomaticModeLocked)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Eigen3 REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS core)
 
 file(GLOB_RECURSE AutomaticModeLocked_src ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
 
@@ -14,7 +15,7 @@ target_include_directories(${project_name}_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR
 
 
 target_link_libraries(${project_name}_lib PUBLIC Eigen3::Eigen)
-target_link_libraries(${project_name}_lib PRIVATE config_loader_lib)
+target_link_libraries(${project_name}_lib PRIVATE config_loader_lib opencv_core)
 
 add_executable(${project_name} main.cpp)
 target_link_libraries(${project_name} PRIVATE
