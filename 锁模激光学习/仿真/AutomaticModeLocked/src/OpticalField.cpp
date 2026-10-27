@@ -41,7 +41,7 @@ OpticalField init_gauss_optical_field()
     const double peak_power_w = static_cast<double>(gaussian_config["peak_power_w"]);//峰值功率W
     const double polarization_angle_rad = static_cast<double>(gaussian_config["polarization_angle_deg"]) * std::numbers::pi_v<double> / 180.0;//x、y偏振分量的振幅分配角
     const double relative_phase_rad = static_cast<double>(gaussian_config["relative_phase_deg"]) * std::numbers::pi_v<double> / 180.0;//y分量相对x分量的相位差
-    const double start_time_fs = -static_cast<double>(sample_size / 2) * sample_stride_fs;//第一个采样点的时间，令完整采样窗口以t=0为中心。
+    const double start_time_fs = -static_cast<double>(sample_size / 2) * sample_stride_fs;//第一个采样点的时间（时间窗口以t=0为中心：对于4096点、1 fs步长，起点为-2048 fs）。
     const double center_frequency_thz = light_speed_m_per_s / wave_length_nm * 1.0e-3;//中心频率f[THz] = c[m/s] / lambda[nm] * 10^-3。
 
     

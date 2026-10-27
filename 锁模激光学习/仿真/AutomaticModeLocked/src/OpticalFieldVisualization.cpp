@@ -1,11 +1,14 @@
 #include "OpticalFieldVisualization.hpp"
-#include "FourierTransform.hpp"
+#include "DFT.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -28,8 +31,8 @@ constexpr int kPlotBottom = 615;
 constexpr int kMaxEpcPhaseDeg = 360;
 constexpr double kBoundaryEnergyFractionWarning = 1.0e-4;
 constexpr double kMinimumEnergyForBoundaryWarningJ = 1.0e-16;//1e-4 pJ，避免纯微弱噪声触发警告。
-constexpr double kPulseEnergyFloorJ = 1.0e-16;//1e-4 pJ，低于此值视为只剩ASE噪声底。
-constexpr double kCavityDisplayMinimumFullScaleW = 1.0e-3;//防止微瓦噪声被自动放大成“强脉冲”。
+constexpr double kPulseEnergyFloorJ = 1.0e-16;//1e-4 pJ，仅用于提示低信号，不推断是否存在ASE。
+constexpr double kCavityDisplayMinimumFullScaleW = 1.0e-3;//防止微弱残余场被自动放大成“强脉冲”。
 constexpr double kSpectrumHalfSpanThz = 4.0;
 constexpr double kSpectrumFloorDb = -60.0;
 constexpr std::size_t kSpectrumZeroPaddingFactor = 4;
@@ -68,7 +71,7 @@ FieldMetrics calculate_field_metrics(const OpticalField& field)
         const double power_w =
             std::norm(polarization(0, column)) + std::norm(polarization(1, column));
         if (!std::isfinite(power_w))
-            continue;
+            throw std::runtime_error("[OpticalFieldVisualization]光功率超出数值范围，请检查传播模型");
 
         metrics.max_power_w = std::max(metrics.max_power_w, power_w);
         const double sample_energy_j = power_w * sample_stride_s;
@@ -93,7 +96,7 @@ cv::Mat render_optical_field(
     int update_delay_ms,
     double edge_energy_fraction,
     bool boundary_risk,
-    bool noise_floor,
+    bool low_signal,
     const std::vector<double>& epc_delta_phase_deg)
 {
     const cv::Scalar background(28, 28, 28);
@@ -122,7 +125,7 @@ cv::Mat render_optical_field(
             "    frame delay=" + std::to_string(update_delay_ms) + " ms",
         {kPlotLeft, 74}, cv::FONT_HERSHEY_SIMPLEX, 0.58, secondary, 1, cv::LINE_AA);
     cv::putText(image,
-                "Space: run/pause  D/right: one round  [ slower  ] faster  A: auto scales  R: reset",
+                "Space: run/pause  D/right: one round  [ slower  ] faster  A: auto  R: reset  Q/Esc: quit",
                 {590, 74}, cv::FONT_HERSHEY_SIMPLEX, 0.35, secondary, 1, cv::LINE_AA);
 
     if (boundary_risk)
@@ -134,11 +137,11 @@ cv::Mat render_optical_field(
             {kPlotLeft, 98}, cv::FONT_HERSHEY_SIMPLEX, 0.43,
             warning_color, 1, cv::LINE_AA);
     }
-    else if (noise_floor)
+    else if (low_signal)
     {
         cv::putText(
             image,
-            "NOISE FLOOR: the pulse has extinguished; only the injected ASE remains",
+            "LOW SIGNAL: total field energy is below the display threshold",
             {kPlotLeft, 98}, cv::FONT_HERSHEY_SIMPLEX, 0.43,
             warning_color, 1, cv::LINE_AA);
     }
@@ -236,13 +239,13 @@ cv::Mat render_optical_field(
                     format_number(energy_j * 1.0e12) + " pJ",
                 {430, legend_y + 5}, cv::FONT_HERSHEY_SIMPLEX, 0.45,
                 foreground, 1, cv::LINE_AA);
-    cv::putText(image, epc_text, {825, legend_y + 5},
+    cv::putText(image, epc_text, {kPlotLeft, legend_y + 30},
                 cv::FONT_HERSHEY_SIMPLEX, 0.38, secondary, 1, cv::LINE_AA);
     return image;
 }
 
 cv::Mat render_oscilloscope(
-    const Photodetector::VoltageSignal& signal,
+    const VirtualOscilloscope::VoltageSignal& signal,
     std::size_t round_trip,
     double y_axis_max_mv,
     bool boundary_risk)
@@ -256,7 +259,7 @@ cv::Mat render_oscilloscope(
 
     constexpr int plot_left = 105;
     constexpr int plot_right = 1235;
-    constexpr int plot_top = 100;
+    constexpr int plot_top = 120;
     constexpr int plot_bottom = 370;
     cv::Mat image(kScopeImageHeight, kImageWidth, CV_8UC3, background);
 
@@ -288,7 +291,7 @@ cv::Mat render_oscilloscope(
             format_number(signal.responsivity_a_per_w, 2) + " A/W  |  " +
             format_number(signal.load_resistance_ohm, 0) + " ohm  |  " +
             format_number(signal.bandwidth_ghz, 0) + " GHz bandwidth",
-        {650, 70}, cv::FONT_HERSHEY_SIMPLEX, 0.40, secondary, 1, cv::LINE_AA);
+        {plot_left, 92}, cv::FONT_HERSHEY_SIMPLEX, 0.40, secondary, 1, cv::LINE_AA);
 
     constexpr int grid_divisions = 5;
     for (int index = 0; index <= grid_divisions; ++index)
@@ -345,7 +348,7 @@ cv::Mat render_oscilloscope(
     {
         cv::putText(
             image,
-            "FFT boundary warning: this detector trace is not physically reliable",
+            "Cavity edge energy detected: inspect time-window boundaries",
             {790, 443}, cv::FONT_HERSHEY_SIMPLEX, 0.38,
             warning_color, 1, cv::LINE_AA);
     }
@@ -363,7 +366,7 @@ cv::Mat render_oscilloscope(
 cv::Mat render_spectrum(
     const OpticalField& field,
     std::size_t round_trip,
-    bool noise_floor,
+    bool low_signal,
     bool boundary_risk)
 {
     const cv::Scalar background(22, 20, 28);
@@ -385,6 +388,8 @@ cv::Mat render_spectrum(
         background);
 
     const auto& info = field.basic_info();
+    if (info.sample_size > static_cast<std::size_t>(std::numeric_limits<int>::max()) / kSpectrumZeroPaddingFactor)
+        throw std::invalid_argument("[OpticalFieldVisualization]显示频谱点数超过DFT支持的范围");
     const std::size_t spectrum_sample_size =
         info.sample_size * kSpectrumZeroPaddingFactor;
     OpticalField::Polarization spectrum = OpticalField::Polarization::Zero(
@@ -392,7 +397,9 @@ cv::Mat render_spectrum(
         static_cast<Eigen::Index>(spectrum_sample_size));
     spectrum.leftCols(static_cast<Eigen::Index>(info.sample_size)) =
         field.polarization();
-    fourier::forward_in_place(spectrum);
+    //仅对显示数据补零，不修改仿真光场，也不改变DFT接口的输入输出点数。
+    const OpticalField display_field(std::move(spectrum), info);
+    spectrum = DFT::forward(display_field);
 
     struct SpectrumPoint
     {
@@ -406,19 +413,22 @@ cv::Mat render_spectrum(
     double peak_frequency_offset_thz = 0.0;
     const long long sample_size = static_cast<long long>(spectrum_sample_size);
 
-    //按照负频率到正频率的顺序读取未经fftshift的FFT结果。
+    //显示物理频偏Ω=ω-ω0，按从负到正排序。
+    //当前载波为exp(i*(beta0*z-omega0*t))，物理频偏与标准DFT坐标q符号相反：Ω=-q。
     for (long long signed_bin = -sample_size / 2;
          signed_bin < (sample_size + 1) / 2;
          ++signed_bin)
     {
         const std::size_t index = static_cast<std::size_t>(
-            signed_bin >= 0 ? signed_bin : sample_size + signed_bin);
+            (sample_size - signed_bin) % sample_size);
         const double frequency_offset_thz =
             static_cast<double>(signed_bin) * 1000.0 /
             (static_cast<double>(spectrum_sample_size) * info.sample_stride);
         const double spectral_power =
             std::norm(spectrum(0, static_cast<Eigen::Index>(index))) +
             std::norm(spectrum(1, static_cast<Eigen::Index>(index)));
+        if (!std::isfinite(spectral_power))
+            throw std::runtime_error("[OpticalFieldVisualization]频谱功率超出数值范围，请检查传播模型");
 
         points.push_back({frequency_offset_thz, spectral_power});
         if (spectral_power > peak_spectral_power)
@@ -455,7 +465,7 @@ cv::Mat render_spectrum(
     cv::putText(
         image,
         "Round trip: " + std::to_string(round_trip) +
-            "    normalized power spectrum  |  4x zero-padded display",
+            "    normalized power spectrum  |  4x display interpolation (not extra resolution)",
         {plot_left, 80}, cv::FONT_HERSHEY_SIMPLEX, 0.52, secondary, 1, cv::LINE_AA);
     cv::putText(
         image,
@@ -532,15 +542,15 @@ cv::Mat render_spectrum(
     {
         cv::putText(
             image,
-            "FFT boundary warning: spectrum is contaminated by time-window wrap",
+            "Edge energy detected: check truncation / periodic wrap",
             {1100, footer_y}, cv::FONT_HERSHEY_SIMPLEX, 0.37,
             warning_color, 1, cv::LINE_AA);
     }
-    else if (noise_floor)
+    else if (low_signal)
     {
         cv::putText(
             image,
-            "NOISE FLOOR: this is the normalized ASE spectrum",
+            "LOW SIGNAL: this spectrum is normalized, not absolute power",
             {1260, footer_y}, cv::FONT_HERSHEY_SIMPLEX, 0.39,
             warning_color, 1, cv::LINE_AA);
     }
@@ -582,36 +592,56 @@ OpticalFieldVisualization::OpticalFieldVisualization(std::size_t epc_retarder_co
         cv::setTrackbarPos(m_epc_trackbar_names.back(), kWindowName, 0);
     }
 
-    //Qt HighGUI控制面板中的按钮。它只在用户点击时重新计算两个窗口的纵轴量程。
-    cv::createButton(
-        "AUTO vertical scales",
-        &OpticalFieldVisualization::on_auto_scale,
-        this,
-        cv::QT_PUSH_BUTTON,
-        false);
+    //Qt后端提供AUTO按钮；其他后端仍可通过A键重新设置纵轴量程。
+    try
+    {
+        cv::createButton("AUTO vertical scales", &OpticalFieldVisualization::on_auto_scale,
+                         this, cv::QT_PUSH_BUTTON, false);
+    }
+    catch (const cv::Exception&)
+    {
+        std::cerr << "AUTO button is unavailable on this GUI backend; press A to rescale.\n";
+    }
 }
 
 OpticalFieldVisualization::~OpticalFieldVisualization()
 {
-    if (m_window_created)
-        cv::destroyWindow(kWindowName);
-    if (m_scope_window_created)
-        cv::destroyWindow(kScopeWindowName);
-    if (m_spectrum_window_created)
-        cv::destroyWindow(kSpectrumWindowName);
+    //用户可能已经关闭窗口，析构时不能再向外抛出HighGUI异常。
+    const auto close_window = [](const char* name, bool created)
+    {
+        if (!created)
+            return;
+        try { cv::destroyWindow(name); }
+        catch (const cv::Exception&) {}
+    };
+    close_window(kWindowName, m_window_created);
+    close_window(kScopeWindowName, m_scope_window_created);
+    close_window(kSpectrumWindowName, m_spectrum_window_created);
 }
 
 OpticalFieldVisualizationCommand OpticalFieldVisualization::update(
     const OpticalField& optical_field,
-    const Photodetector::VoltageSignal& oscilloscope_signal,
+    const VirtualOscilloscope::VoltageSignal& oscilloscope_signal,
     std::size_t round_trip)
 {
     OpticalFieldVisualizationCommand command;
     command.epc_delta_phase_deg.reserve(m_epc_trackbar_names.size());
 
-    if (cv::getWindowProperty(kWindowName, cv::WND_PROP_VISIBLE) < 1.0 ||
-        cv::getWindowProperty(kScopeWindowName, cv::WND_PROP_VISIBLE) < 1.0 ||
-        cv::getWindowProperty(kSpectrumWindowName, cv::WND_PROP_VISIBLE) < 1.0)
+    const auto& info = optical_field.basic_info();
+    if (optical_field.polarization().cols() == 0 ||
+        !std::isfinite(info.sample_stride) || info.sample_stride <= 0.0 ||
+        !std::isfinite(info.start_time))
+        throw std::invalid_argument("[OpticalFieldVisualization]光场为空或时间采样信息无效");
+    if (!optical_field.polarization().allFinite())
+        throw std::invalid_argument("[OpticalFieldVisualization]光场含有NaN或无穷大，请检查传播模型");
+
+    const auto window_visible = [](const char* name)
+    {
+        try { return cv::getWindowProperty(name, cv::WND_PROP_VISIBLE) >= 1.0; }
+        catch (const cv::Exception&) { return false; }
+    };
+    if (!window_visible(kWindowName) || !window_visible(kScopeWindowName) ||
+        !window_visible(kSpectrumWindowName))
     {
         command.should_exit = true;
         return command;
@@ -627,7 +657,7 @@ OpticalFieldVisualizationCommand OpticalFieldVisualization::update(
     const bool boundary_risk =
         metrics.energy_j >= kMinimumEnergyForBoundaryWarningJ &&
         metrics.edge_energy_fraction >= kBoundaryEnergyFractionWarning;
-    const bool noise_floor = round_trip > 0 && metrics.energy_j < kPulseEnergyFloorJ;
+    const bool low_signal = round_trip > 0 && metrics.energy_j < kPulseEnergyFloorJ;
 
     double scope_peak_voltage_mv = 0.0;
     for (double voltage_v : oscilloscope_signal.samples_v)
@@ -665,7 +695,7 @@ OpticalFieldVisualizationCommand OpticalFieldVisualization::update(
         m_update_delay_ms,
         metrics.edge_energy_fraction,
         boundary_risk,
-        noise_floor,
+        low_signal,
         command.epc_delta_phase_deg));
     cv::imshow(
         kScopeWindowName,
@@ -679,7 +709,7 @@ OpticalFieldVisualizationCommand OpticalFieldVisualization::update(
         render_spectrum(
             optical_field,
             round_trip,
-            noise_floor,
+            low_signal,
             boundary_risk));
 
     const int key = cv::waitKeyEx(m_update_delay_ms);

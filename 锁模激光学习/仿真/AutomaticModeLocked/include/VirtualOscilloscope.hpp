@@ -3,8 +3,9 @@
 #include "OpticalField.hpp"
 #include <vector>
 
-//将OC输出的光功率转换为可由示波器观察的电压采样。
-class Photodetector
+//虚拟示波器的观测链路：OC输出光功率->光衰减->光电转换与有限带宽->电压采样。
+//仅用于观察，不把探测结果反馈到腔内光场。
+class VirtualOscilloscope
 {
 public:
     struct VoltageSignal
@@ -18,7 +19,7 @@ public:
         double optical_attenuation_db;//进入探测器前的光功率衰减dB
     };
 
-    Photodetector(
+    VirtualOscilloscope(
         double responsivity_a_per_w,
         double load_resistance_ohm,
         double bandwidth_ghz,

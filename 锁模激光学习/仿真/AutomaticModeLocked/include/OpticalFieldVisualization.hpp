@@ -1,7 +1,7 @@
 #pragma once
 
 #include "OpticalField.hpp"
-#include "Photodetector.hpp"
+#include "VirtualOscilloscope.hpp"
 
 #include <cstddef>
 #include <string>
@@ -28,7 +28,7 @@ public:
 
     OpticalFieldVisualizationCommand update(
         const OpticalField& optical_field,
-        const Photodetector::VoltageSignal& oscilloscope_signal,
+        const VirtualOscilloscope::VoltageSignal& oscilloscope_signal,
         std::size_t round_trip);
 
 private:

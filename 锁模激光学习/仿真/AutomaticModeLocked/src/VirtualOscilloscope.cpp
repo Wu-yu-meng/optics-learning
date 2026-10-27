@@ -1,10 +1,11 @@
-#include "Photodetector.hpp"
+#include "VirtualOscilloscope.hpp"
 #include <cmath>
 #include <complex>
 #include <numbers>
 #include <stdexcept>
+#include <utility>
 
-Photodetector::Photodetector(
+VirtualOscilloscope::VirtualOscilloscope(
     double responsivity_a_per_w,
     double load_resistance_ohm,
     double bandwidth_ghz,
@@ -14,20 +15,25 @@ Photodetector::Photodetector(
       m_bandwidth_ghz(bandwidth_ghz),
       m_optical_attenuation_db(optical_attenuation_db)
 {
-    if (m_responsivity_a_per_w <= 0.0)
-        throw std::invalid_argument("[Photodetector]光电响应度必须大于0");
-    if (m_load_resistance_ohm <= 0.0)
-        throw std::invalid_argument("[Photodetector]负载电阻必须大于0");
-    if (m_bandwidth_ghz <= 0.0)
-        throw std::invalid_argument("[Photodetector]带宽必须大于0");
-    if (m_optical_attenuation_db < 0.0)
-        throw std::invalid_argument("[Photodetector]光衰减不能小于0 dB");
+    if (!std::isfinite(m_responsivity_a_per_w) || m_responsivity_a_per_w <= 0.0)
+        throw std::invalid_argument("[VirtualOscilloscope]光电响应度必须大于0");
+    if (!std::isfinite(m_load_resistance_ohm) || m_load_resistance_ohm <= 0.0)
+        throw std::invalid_argument("[VirtualOscilloscope]负载电阻必须大于0");
+    if (!std::isfinite(m_bandwidth_ghz) || m_bandwidth_ghz <= 0.0)
+        throw std::invalid_argument("[VirtualOscilloscope]带宽必须大于0");
+    if (!std::isfinite(m_optical_attenuation_db) || m_optical_attenuation_db < 0.0)
+        throw std::invalid_argument("[VirtualOscilloscope]光衰减不能小于0 dB");
 }
 
-Photodetector::VoltageSignal Photodetector::detect(
+VirtualOscilloscope::VoltageSignal VirtualOscilloscope::detect(
     const OpticalField& input_optical_field) const
 {
     const auto& polarization = input_optical_field.polarization();
+    if (!std::isfinite(input_optical_field.basic_info().sample_stride) ||
+        input_optical_field.basic_info().sample_stride <= 0.0)
+        throw std::invalid_argument("[VirtualOscilloscope]采样步长必须为有限正数，单位fs");
+    if (!polarization.allFinite())
+        throw std::invalid_argument("[VirtualOscilloscope]光场含有NaN或无穷大，请检查传播模型");
     const std::size_t sample_size = input_optical_field.basic_info().sample_size;
     std::vector<double> samples_v(sample_size, 0.0);
     if (sample_size == 0)
@@ -69,6 +75,8 @@ Photodetector::VoltageSignal Photodetector::detect(
     for (std::size_t i = 0; i < sample_size; ++i)
     {
         const double input_power_w = attenuated_power_w(i);
+        if (!std::isfinite(input_power_w))
+            throw std::invalid_argument("[VirtualOscilloscope]光功率超出数值范围，请检查传播模型");
         filtered_power_w += alpha * (input_power_w - filtered_power_w);
 
         //I=responsivity*P，V=I*R_load。

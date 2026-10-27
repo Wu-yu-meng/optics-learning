@@ -1,44 +1,25 @@
 #pragma once
 #include "OpticalField.hpp"
-#include <cstddef>
-#include <complex>
 #include <vector>
 
-// SMF使用对称分步傅里叶法联合计算二阶色散与Kerr非线性。
+//考虑Kerr非线性、二阶色散
+//采用自适应对称分步传播，每段为半步色散->整步Kerr->半步色散
 class SMF
 {
 public:
-    // 单位依次为W^-1*m^-1、ps^2/km、m。
-    SMF(
-        double gamma_per_w_m,
-        double beta_2_ps2_per_km,
-        double length_m,
-        double max_nonlinear_phase_per_step_rad,
-        std::size_t max_split_step_count);
+    SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km);//单位依次为W^-1*m^-1、m、ps^2/km
     OpticalField propagate(const OpticalField& input_optical_field) const;//SMF传播函数
 private:
-    void update_dispersion_transfer_cache(
-        std::size_t sample_size,
-        double sample_stride_fs,
-        std::size_t split_step_count) const;
-    void apply_second_order_dispersion(
-        OpticalField::Polarization& polarization,
-        const std::vector<std::complex<double>>& transfer) const;
-    void apply_kerr(
-        OpticalField::Polarization& polarization,
-        double propagation_length_m) const;
-
-    Eigen::Matrix2cd m_xy_to_uv_matrix;//将XY偏振分量转换为UV圆偏振分量
+    void kerr(OpticalField::Polarization &polarization, double length_m) const;//等价的UV标量计算，原地写回
+    void dispersion2(OpticalField::Polarization &polarization, const std::vector<std::complex<double>> &transfer) const;
+    void update_dispersion_cache(Eigen::Index sample_size, double sample_stride_fs, std::size_t steps) const;
     double m_gamma_per_w_m;//非线性系数、W^-1*m^-1
-    double m_beta_2_ps2_per_km;//二阶色散系数、ps^2/km
     double m_length_m;//光纤长度、m
-    double m_max_nonlinear_phase_per_step_rad;//每个分步允许的最大Kerr非线性相移rad
-    std::size_t m_max_split_step_count;//自适应分步数上限
-
-    //稳定运行后分步数通常不变，缓存色散传递函数可避免每圈重复计算大量复指数。
-    mutable std::size_t m_cached_sample_size = 0;
-    mutable std::size_t m_cached_split_step_count = 0;
+    double m_beta2_ps2_per_km;//二阶色散系数、ps^2/km，可正可负
+    //采样网格或分段数变化才重建；同一个实例不能并发调用propagate。
+    mutable Eigen::Index m_cached_sample_size = 0;
     mutable double m_cached_sample_stride_fs = 0.0;
-    mutable std::vector<std::complex<double>> m_cached_half_step_dispersion;
-    mutable std::vector<std::complex<double>> m_cached_full_step_dispersion;
+    mutable std::size_t m_cached_steps = 0;
+    mutable std::vector<std::complex<double>> m_half_step_transfer;
+    mutable std::vector<std::complex<double>> m_full_step_transfer;
 };
