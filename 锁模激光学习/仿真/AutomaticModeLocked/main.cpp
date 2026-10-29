@@ -7,7 +7,7 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
-
+#include "config/config.hpp"
 
 //目前想法是分为如下的部分进行仿真：
 //WDM：不仿真
@@ -42,6 +42,8 @@ int main()
     //顺序：EDF->EPC->OC->PD->SMF
     while (true)
     {
+        
+        CONFIG.updateJson();
         OpticalField edf_output = edf.propagate(optical_field);
         OpticalField epc_output = epc.propagate(edf_output);
         OC::OutputField oc_output = oc.propagate(epc_output);

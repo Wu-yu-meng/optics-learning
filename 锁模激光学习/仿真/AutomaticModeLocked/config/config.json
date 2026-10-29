@@ -13,5 +13,9 @@
         "peak_power_w":1.0,
         "polarization_angle_deg":45.0,
         "relative_phase_deg":0.0
+    },
+    "SMF":
+    {
+        "step_length_m": 0.25
     }
 }

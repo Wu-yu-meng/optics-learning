@@ -1,4 +1,6 @@
 #include "SMF.hpp"
+#include "config/config.hpp"
+#include <algorithm>
 #include <cmath>
 #include <complex>
 #include <numbers>
@@ -40,17 +42,31 @@ OpticalField SMF::propagate(const OpticalField &input_optical_field) const
     //创建输出的光场
     OpticalField output_optical_field  = input_optical_field;
 
-    //kerr非线性
-    kerr(output_optical_field);
+    //读取SMF.step_length_m作为分段长度，单位m；最后不足一段时只计算剩余距离。
+    double max_step_length_m = static_cast<double>(CONFIG.config_["SMF"]["step_length_m"]);
+    
+    //对称分步：半步色散->整步Kerr->半步色散
+    double remaining_length_m = m_length_m;
+    while (remaining_length_m > 0.0)
+    {
+        //计算步长
+        double step_length_m = std::min(max_step_length_m, remaining_length_m);
+        double half_step_length_m = step_length_m / 2.0;
 
-    //二阶色散
-    dispersion2(output_optical_field);
+        //色散和kerr
+        dispersion2(output_optical_field, half_step_length_m);
+        kerr(output_optical_field, step_length_m);
+        dispersion2(output_optical_field, half_step_length_m);
+
+        //写回
+        remaining_length_m -= step_length_m;
+    }
 
     //返回
     return output_optical_field;
 }
 
-void SMF::kerr(OpticalField &optical_field) const
+void SMF::kerr(OpticalField &optical_field, double step_length_m) const
 {
 
     const auto &input_polarization = optical_field.polarization();//原偏振
@@ -67,8 +83,8 @@ void SMF::kerr(OpticalField &optical_field) const
         // φv = (2γL/3)(Pv + 2Pu)
         const double power_u_w = std::norm(uv_polarization(0));
         const double power_v_w = std::norm(uv_polarization(1));
-        const double phase_u_rad = (2.0 * m_gamma_per_w_m * m_length_m / 3.0) * (power_u_w + 2.0 * power_v_w);
-        const double phase_v_rad = (2.0 * m_gamma_per_w_m * m_length_m / 3.0) * (power_v_w + 2.0 * power_u_w);
+        const double phase_u_rad = (2.0 * m_gamma_per_w_m * step_length_m / 3.0) * (power_u_w + 2.0 * power_v_w);
+        const double phase_v_rad = (2.0 * m_gamma_per_w_m * step_length_m / 3.0) * (power_v_w + 2.0 * power_u_w);
 
         // kerr效应的作用矩阵
         Eigen::Matrix2cd kerr_matrix;
@@ -83,7 +99,7 @@ void SMF::kerr(OpticalField &optical_field) const
     optical_field = OpticalField{std::move(output_polarization), optical_field.basic_info()};
 }
 
-void SMF::dispersion2(OpticalField &optical_field) const
+void SMF::dispersion2(OpticalField &optical_field,double step_length_m) const
 {
     //获取基础的光场信息
     const auto basic_info = optical_field.basic_info();
@@ -111,7 +127,7 @@ void SMF::dispersion2(OpticalField &optical_field) const
         const double omega_rad_per_fs = static_cast<double>(frequency_index) * angular_frequency_stride;
 
         //计算二阶色散带来的额外相位：H(Ω)=exp(i*beta2*L*Ω^2/2)
-        const double phase_rad = 0.5 * beta2_fs2_per_m * m_length_m * omega_rad_per_fs * omega_rad_per_fs;
+        const double phase_rad = 0.5 * beta2_fs2_per_m * step_length_m * omega_rad_per_fs * omega_rad_per_fs;
 
         //叠加到原本的相位上
         spectrum.col(column) *= std::polar(1.0, phase_rad);
