@@ -6,38 +6,30 @@
 #include "SMF.hpp"
 #include <chrono>
 #include <iostream>
+#include <string>
 #include <thread>
+#include <vector>
 #include "config/config.hpp"
 #include "Visualization.hpp"
 #include <opencv2/highgui.hpp>
 
 
-//目前想法是分为如下的部分进行仿真：
-//WDM：不仿真
-//EDF：模拟饱和增益
-//OC：不太确定，是否直接认为减少10%的光强即可
-//EPC：当作一个4输入影响偏振的系统，即设计一个含有4个参数的2x2矩阵作用于琼斯矢量
-//PD-ISO：按照偏振来抑制光强
-//SMF：固定损耗，双折射，Kerr非线性，不考虑二阶色散，考虑这些来生成矩阵
 
-
-//全流程应该是：
-//1. 选取一个初始化方式（高斯，随机，或者其他），和一个窗口时间，在窗口内按照步长进行采样得到初始的光场序列
-//2. 按照顺序依次通过EDF，OC，PC，PD-ISO，SMF。依次循环
 
 int main()
 {
 
     OC oc(0.9,0.98);
-    PD pd(45.0);
-    EDF edf(0.1,100,1.0);
-    SMF smf(1.3e-3, 5.0,0.0);
-    EPC epc({
+    PD pd(60.0);
+    EDF edf(0.3,100,1.0);
+    SMF smf(1.3e-2, 5.0,0.001);
+    const std::vector<EPC::Retarder> epc_retarders{
         {0, 0.0, 0.0},
         {1, 45.0, 0.0},
         {2, 0.0, 0.0},
         {3, 45.0, 0.0},
-    });
+    };
+    EPC epc(epc_retarders);
 
     OpticalField optical_field =  init_gauss_optical_field();//初始化高斯光场
     OpticalField oc_extracted_field =  init_gauss_optical_field();//OC的分光
@@ -46,8 +38,18 @@ int main()
     VirtualOpticalPowerVisualizer power_visualizer_test("test");
     VirtualOpticalPowerVisualizer power_visualizer_edf("edf");
 
-    cv::namedWindow(power_visualizer_test.name(), cv::WINDOW_NORMAL);
-    cv::namedWindow(power_visualizer_edf.name(), cv::WINDOW_NORMAL);
+    //Qt滑动条内部使用Latin-1查找窗口，因此使用英文标识，中文仪器名称只作为显示标题。
+    const std::string power_window_id = "OpticalPowerTest";
+    cv::namedWindow(power_window_id, cv::WINDOW_NORMAL);
+    cv::setWindowTitle(power_window_id, power_visualizer_test.name());
+
+    //每个通道控制对应拨片的相位延迟，范围0~360度，主轴方向保持初始化设置。
+    for (const EPC::Retarder &retarder : epc_retarders)
+    {
+        const std::string trackbar_name = "EPC CH" + std::to_string(retarder.ID + 1) + " phase (deg)";
+        cv::createTrackbar(trackbar_name, power_window_id, nullptr, 360);
+        cv::setTrackbarPos(trackbar_name, power_window_id, static_cast<int>(retarder.delta_phase_deg));
+    }
 
     bool is_running = false;//启动时暂停，便于观察初始光场。
 
@@ -61,7 +63,7 @@ int main()
         if (key == 'a' || key == 'A')
         {
             power_visualizer_test.auto_size();
-            continue;//下一次绘制消耗auto标志，本次不推进光场。
+            continue;
         }
         if (key == ' ')
             is_running = !is_running;
@@ -71,23 +73,29 @@ int main()
         if (!is_running && !single_step)
             continue;
         
+        //本圈传播前读取滑动条；暂停时可以调整，继续播放或单步时生效。
+        for (const EPC::Retarder &retarder : epc_retarders)
+        {
+            const std::string trackbar_name = "EPC CH" + std::to_string(retarder.ID + 1) + " phase (deg)";
+            const int delta_phase_deg = cv::getTrackbarPos(trackbar_name, power_window_id);
+            epc.set_retarder(retarder.ID, static_cast<double>(delta_phase_deg));
+        }
+
         CONFIG.updateJson();
         OpticalField edf_output = edf.propagate(optical_field);
-        cv::imshow(power_visualizer_edf.name(), power_visualizer_edf.measure(loop_count, optical_field));
 
         OpticalField epc_output = epc.propagate(edf_output);
-        OC::OutputField oc_output = oc.propagate(epc_output);
+        OpticalField smf_output = smf.propagate(epc_output);
+        OC::OutputField oc_output = oc.propagate(smf_output);
         oc_extracted_field = oc_output.extracted;
         OpticalField pd_output = pd.propagate(oc_output.cavity);
-        OpticalField smf_output = smf.propagate(pd_output);
-        optical_field = smf_output;
-        cv::imshow(power_visualizer_test.name(), power_visualizer_test.measure(loop_count, optical_field));
+        optical_field = pd_output;
+        cv::imshow(power_window_id, power_visualizer_test.measure(loop_count, optical_field));
 
         loop_count++;
     }
 
-    cv::destroyWindow(power_visualizer_test.name());
-    cv::destroyWindow(power_visualizer_edf.name());
+    cv::destroyWindow(power_window_id);
 
     return 0;
 
