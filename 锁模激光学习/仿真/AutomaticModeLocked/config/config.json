@@ -7,8 +7,8 @@
     "init_gauss_optical_field":
     {
         "wave_length_nm":1550,
-        "sample_stride_fs":1.0,
-        "sample_size":16192,
+        "sample_stride_fs":5.0,
+        "sample_size":16384,
         "fwhm_time_fs":100.0,
         "peak_power_w":1.0,
         "polarization_angle_deg":45.0,

@@ -20,9 +20,9 @@ int main()
 {
 
     OC oc(0.9,0.98);
-    PD pd(60.0);
-    EDF edf(0.3,100,1.0);
-    SMF smf(1.3e-2, 5.0,0.001);
+    PD pd(45.0);
+    EDF edf(0.4,100,1.0,4.0,1.0e-6,20261018,10.0);//增益带宽与噪声带宽均4 THz，噪声能量1e-6 pJ/圈，种子不变
+    SMF smf(1.3e-2, 5.0,-21.7);
     const std::vector<EPC::Retarder> epc_retarders{
         {0, 0.0, 0.0},
         {1, 45.0, 0.0},
@@ -53,7 +53,7 @@ int main()
 
     bool is_running = false;//启动时暂停，便于观察初始光场。
 
-    //顺序：EDF->EPC->OC->PD->SMF
+    //环路顺序：EPC->SMF->EDF->OC->PD，观测并保存PD输出作为下一圈输入。
     while (true)
     {
         
@@ -82,11 +82,10 @@ int main()
         }
 
         CONFIG.updateJson();
-        OpticalField edf_output = edf.propagate(optical_field);
-
-        OpticalField epc_output = epc.propagate(edf_output);
+        OpticalField epc_output = epc.propagate(optical_field);
         OpticalField smf_output = smf.propagate(epc_output);
-        OC::OutputField oc_output = oc.propagate(smf_output);
+        OpticalField edf_output = edf.propagate(smf_output);
+        OC::OutputField oc_output = oc.propagate(edf_output);
         oc_extracted_field = oc_output.extracted;
         OpticalField pd_output = pd.propagate(oc_output.cavity);
         optical_field = pd_output;
