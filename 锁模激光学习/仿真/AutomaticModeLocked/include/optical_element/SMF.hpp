@@ -7,7 +7,7 @@ class SMF : public OpticalElement
 {
 public:
     SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km);//单位依次为W^-1*m^-1、m、ps^2/km
-    OpticalOutputs propagate(const OpticalField& input_optical_field) override;//SMF传播函数
+    OpticalOutputs propagate(const OpticalInputs& input_optical_fields) override;//SMF传播函数
 private:
     void kerr(OpticalField &optical_field, double step_length_m) const;//原地计算Kerr非线性，不修改SMF参数
     void dispersion2(OpticalField &optical_field, double step_length_m) const;//二阶色散,需要传入作用距离

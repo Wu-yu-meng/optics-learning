@@ -44,8 +44,10 @@ EPC::EPC(const std::vector<Retarder> &retarders) : m_retarders(retarders)
 
 }
 
-OpticalOutputs EPC::propagate(const OpticalField &input_optical_field)
+OpticalOutputs EPC::propagate(const OpticalInputs &input_optical_fields)
 {
+    const OpticalField& input_optical_field = input_optical_fields.at("in").get();
+
     //计算等效的琼斯矩阵
     Eigen::Matrix<std::complex<double>, 2, 2> total_jones_matrix = this->total_jones_matrix();
     

@@ -7,7 +7,7 @@ class PD : public OpticalElement
 {
 public:
     PD(double transmission_axis_angle_deg);
-    OpticalOutputs propagate(const OpticalField& input_optical_field) override;//PD的传播函数
+    OpticalOutputs propagate(const OpticalInputs& input_optical_fields) override;//PD的传播函数
 
 private:
     double m_transmission_axis_angle_deg;//允许全部光透过的偏振方向，相对于x轴

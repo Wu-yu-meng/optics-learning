@@ -16,8 +16,9 @@ EDF::EDF(double g_0, double E_sat, double length, double gain_bandwidth_thz,
 {
 }
 
-OpticalOutputs EDF::propagate(const OpticalField &input_optical_field)
+OpticalOutputs EDF::propagate(const OpticalInputs &input_optical_fields)
 {
+    const OpticalField& input_optical_field = input_optical_fields.at("in").get();
     
     //按照g= g_0 * (1 + E/E_t)^(-1)的模型进行增益系数计算
     //然后计算功率开根，乘到电场上

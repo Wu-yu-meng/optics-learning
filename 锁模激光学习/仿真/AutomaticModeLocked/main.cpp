@@ -5,6 +5,7 @@
 #include "optical_element/EPC.hpp"
 #include "optical_element/SMF.hpp"
 #include <chrono>
+#include <functional>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -12,7 +13,7 @@
 #include "config/config.hpp"
 #include "Visualization.hpp"
 #include <opencv2/highgui.hpp>
-
+#include "Builder.hpp"
 
 
 
@@ -82,12 +83,12 @@ int main()
         }
 
         CONFIG.updateJson();
-        OpticalOutputs epc_output = epc.propagate(optical_field);
-        OpticalOutputs smf_output = smf.propagate(epc_output.at("out"));
-        OpticalOutputs edf_output = edf.propagate(smf_output.at("out"));
-        OpticalOutputs oc_output = oc.propagate(edf_output.at("out"));
+        OpticalOutputs epc_output = epc.propagate({{"in",std::cref(optical_field)}});
+        OpticalOutputs smf_output = smf.propagate({{"in",std::cref(epc_output.at("out"))}});
+        OpticalOutputs edf_output = edf.propagate({{"in",std::cref(smf_output.at("out"))}});
+        OpticalOutputs oc_output = oc.propagate({{"in",std::cref(edf_output.at("out"))}});
         oc_extracted_field = oc_output.at("extracted");
-        OpticalOutputs pd_output = pd.propagate(oc_output.at("cavity"));
+        OpticalOutputs pd_output = pd.propagate({{"in",std::cref(oc_output.at("cavity"))}});
         optical_field = pd_output.at("out");
         cv::imshow(power_window_id, power_visualizer_test.measure(loop_count, optical_field));
 

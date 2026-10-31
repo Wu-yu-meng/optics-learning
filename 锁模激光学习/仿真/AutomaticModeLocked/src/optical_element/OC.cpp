@@ -6,8 +6,9 @@ OC::OC(double cavity_ratio, double power_transmittance)
 {
 }
 
-OpticalOutputs OC::propagate(const OpticalField &input_optical_field)
+OpticalOutputs OC::propagate(const OpticalInputs &input_optical_fields)
 {
+    const OpticalField& input_optical_field = input_optical_fields.at("in").get();
 
     //获取光场
     const OpticalField::Polarization& polarization = input_optical_field.polarization();

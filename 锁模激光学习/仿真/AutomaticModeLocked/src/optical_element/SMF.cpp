@@ -36,8 +36,9 @@ SMF::SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km)
     m_xy_to_uv_matrix *= inverse_sqrt_two;
 }
 
-OpticalOutputs SMF::propagate(const OpticalField &input_optical_field)
+OpticalOutputs SMF::propagate(const OpticalInputs &input_optical_fields)
 {
+    const OpticalField& input_optical_field = input_optical_fields.at("in").get();
 
     //创建输出的光场
     OpticalField output_optical_field  = input_optical_field;

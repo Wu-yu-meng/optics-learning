@@ -17,7 +17,7 @@ public:
     };
 
     EPC(const std::vector<Retarder> &retarders);
-    OpticalOutputs propagate(const OpticalField& input_optical_field) override;//EPC的传播函数
+    OpticalOutputs propagate(const OpticalInputs& input_optical_fields) override;//EPC的传播函数
 
     //修改EPC某个通道的偏振量
     void set_retarder(int ID,double delta_phase_deg);

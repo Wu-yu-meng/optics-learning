@@ -6,7 +6,7 @@ class OC : public OpticalElement
 {
 public:
     OC(double cavity_ratio,double power_transmittance);
-    OpticalOutputs propagate(const OpticalField& input_optical_field) override;//OC的传播函数
+    OpticalOutputs propagate(const OpticalInputs& input_optical_fields) override;//OC的传播函数
 private:
 
     //留在腔内的光场的功率占比

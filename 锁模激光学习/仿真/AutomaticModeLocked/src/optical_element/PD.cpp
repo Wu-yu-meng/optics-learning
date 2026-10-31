@@ -8,8 +8,9 @@ PD::PD(double transmission_axis_angle_deg)
 {
 }
 
-OpticalOutputs PD::propagate(const OpticalField & input_optical_field)
+OpticalOutputs PD::propagate(const OpticalInputs & input_optical_fields)
 {
+    const OpticalField& input_optical_field = input_optical_fields.at("in").get();
 
     //构造传播用的矩阵
     double transmission_axis_angle_rad = m_transmission_axis_angle_deg * std::numbers::pi_v<double> / 180.0;
