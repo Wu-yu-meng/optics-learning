@@ -1,17 +1,17 @@
 #pragma once
-#include "OpticalField.hpp"
+#include "OpticalElement.hpp"
 #include <cstdint>
 #include <random>
 //EDF只考虑其增益效果，不考虑其作为光纤的Kerr效应和二阶色散
 //采用有限增益带宽的饱和增益模型，保留带限噪声
 
-class EDF
+class EDF : public OpticalElement
 {
 public:
     //第四个参数为增益带宽THz；噪声能量单位pJ/次传播，设为0可关闭；末尾为独立的噪声带宽THz。
     EDF(double g_0, double E_sat, double length, double gain_bandwidth_thz = 10.0,
         double ase_noise_energy_pj_per_pass = 0.0, std::uint64_t random_seed = 20261018, double noise_bandwidth_thz = 10.0);
-    OpticalField propagate(const OpticalField& input_optical_field);//传播时会推进随机数生成器状态
+    OpticalOutputs propagate(const OpticalField& input_optical_field) override;//传播时会推进随机数生成器状态
     void reset_noise();//恢复初始随机种子，便于重复实验
 
 private:

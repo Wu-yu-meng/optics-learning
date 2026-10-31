@@ -1,4 +1,4 @@
-#include "SMF.hpp"
+#include "optical_element/SMF.hpp"
 #include "config/config.hpp"
 #include <algorithm>
 #include <cmath>
@@ -36,7 +36,7 @@ SMF::SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km)
     m_xy_to_uv_matrix *= inverse_sqrt_two;
 }
 
-OpticalField SMF::propagate(const OpticalField &input_optical_field) const
+OpticalOutputs SMF::propagate(const OpticalField &input_optical_field)
 {
 
     //创建输出的光场
@@ -63,7 +63,9 @@ OpticalField SMF::propagate(const OpticalField &input_optical_field) const
     }
 
     //返回
-    return output_optical_field;
+    OpticalOutputs output_fields;
+    output_fields.emplace("out",std::move(output_optical_field));
+    return output_fields;
 }
 
 void SMF::kerr(OpticalField &optical_field, double step_length_m) const

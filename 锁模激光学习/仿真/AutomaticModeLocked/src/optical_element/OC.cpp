@@ -1,4 +1,4 @@
-#include "OC.hpp"
+#include "optical_element/OC.hpp"
 
 OC::OC(double cavity_ratio, double power_transmittance)
     : m_cavity_ratio(cavity_ratio),
@@ -6,7 +6,7 @@ OC::OC(double cavity_ratio, double power_transmittance)
 {
 }
 
-OC::OutputField OC::propagate(const OpticalField &input_optical_field) const
+OpticalOutputs OC::propagate(const OpticalField &input_optical_field)
 {
 
     //获取光场
@@ -25,10 +25,10 @@ OC::OutputField OC::propagate(const OpticalField &input_optical_field) const
     extracted = extracted_ratio * polarization;
 
     //返回
-    return OutputField{
-        OpticalField(std::move(cavity),input_optical_field.basic_info()),
-        OpticalField(std::move(extracted),input_optical_field.basic_info()),
-    };
+    OpticalOutputs output_fields;
+    output_fields.emplace("cavity",OpticalField(std::move(cavity),input_optical_field.basic_info()));//腔内光场
+    output_fields.emplace("extracted",OpticalField(std::move(extracted),input_optical_field.basic_info()));//输出光场
+    return output_fields;
 }
 
 

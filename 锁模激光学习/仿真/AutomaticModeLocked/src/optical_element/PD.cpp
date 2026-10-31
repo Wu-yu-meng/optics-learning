@@ -1,4 +1,4 @@
-#include "PD.hpp"
+#include "optical_element/PD.hpp"
 #include <cmath>
 #include <numbers>
 #include <utility>
@@ -8,7 +8,7 @@ PD::PD(double transmission_axis_angle_deg)
 {
 }
 
-OpticalField PD::propagate(const OpticalField & input_optical_field) const
+OpticalOutputs PD::propagate(const OpticalField & input_optical_field)
 {
 
     //构造传播用的矩阵
@@ -23,5 +23,7 @@ OpticalField PD::propagate(const OpticalField & input_optical_field) const
     OpticalField::Polarization output_polarization = transmission_matrix * input_optical_field.polarization();
 
     //返回
-    return OpticalField(std::move(output_polarization),input_optical_field.basic_info());
+    OpticalOutputs output_fields;
+    output_fields.emplace("out",OpticalField(std::move(output_polarization),input_optical_field.basic_info()));
+    return output_fields;
 }

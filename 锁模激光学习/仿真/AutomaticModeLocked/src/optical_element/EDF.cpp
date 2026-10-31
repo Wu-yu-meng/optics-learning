@@ -1,4 +1,4 @@
-#include "EDF.hpp"
+#include "optical_element/EDF.hpp"
 #include "DFT.hpp"
 #include <cmath>
 #include <utility>
@@ -16,7 +16,7 @@ EDF::EDF(double g_0, double E_sat, double length, double gain_bandwidth_thz,
 {
 }
 
-OpticalField EDF::propagate(const OpticalField &input_optical_field)
+OpticalOutputs EDF::propagate(const OpticalField &input_optical_field)
 {
     
     //按照g= g_0 * (1 + E/E_t)^(-1)的模型进行增益系数计算
@@ -98,7 +98,9 @@ OpticalField EDF::propagate(const OpticalField &input_optical_field)
     }
 
     //返回
-    return OpticalField(std::move(output_polarization),input_optical_field.basic_info());
+    OpticalOutputs output_fields;
+    output_fields.emplace("out",OpticalField(std::move(output_polarization),input_optical_field.basic_info()));
+    return output_fields;
 
 }
 
