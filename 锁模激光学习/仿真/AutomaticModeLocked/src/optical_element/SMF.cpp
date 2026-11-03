@@ -1,5 +1,4 @@
 #include "optical_element/SMF.hpp"
-#include "config/config.hpp"
 #include <algorithm>
 #include <cmath>
 #include <complex>
@@ -8,10 +7,11 @@
 #include <utility>
 #include "DFT.hpp"
 
-SMF::SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km)
+SMF::SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km, double step_length_m)
     : m_gamma_per_w_m(gamma_per_w_m),
       m_length_m(length_m),
-      m_beta2_ps2_per_km(beta2_ps2_per_km)
+      m_beta2_ps2_per_km(beta2_ps2_per_km),
+      m_step_length_m(step_length_m)
 {
     if (m_gamma_per_w_m < 0.0)
     {
@@ -26,6 +26,11 @@ SMF::SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km)
     if (!std::isfinite(m_beta2_ps2_per_km))
     {
         throw std::invalid_argument("[SMF]二阶色散系数必须为有限数，单位ps^2/km");
+    }
+
+    if (!std::isfinite(m_step_length_m) || m_step_length_m <= 0.0)
+    {
+        throw std::invalid_argument("[SMF]分段长度必须为正的有限数，单位m");
     }
 
     //xy->uv的转系矩阵
@@ -44,7 +49,7 @@ OpticalOutputs SMF::propagate(const OpticalInputs &input_optical_fields)
     OpticalField output_optical_field  = input_optical_field;
 
     //读取SMF.step_length_m作为分段长度，单位m；最后不足一段时只计算剩余距离。
-    double max_step_length_m = static_cast<double>(CONFIG.config_["SMF"]["step_length_m"]);
+    double max_step_length_m = m_step_length_m;
     
     //对称分步：半步色散->整步Kerr->半步色散
     double remaining_length_m = m_length_m;

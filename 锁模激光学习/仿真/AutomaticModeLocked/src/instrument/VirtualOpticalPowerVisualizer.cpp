@@ -1,4 +1,4 @@
-#include "Visualization.hpp"
+#include "instrument/VirtualOpticalPowerVisualizer.hpp"
 #include <Eigen/Core>
 #include <vector>
 #include <opencv2/imgproc.hpp>

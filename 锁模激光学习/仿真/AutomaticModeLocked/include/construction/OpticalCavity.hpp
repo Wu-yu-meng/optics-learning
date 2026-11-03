@@ -33,16 +33,3 @@ private:
     size_t m_loop = 0;//循环次数
 
 };
-
-
-//读取配置文件构建激光腔
-class Builder
-{
-public:
-    Builder() = delete;
-    Builder(ReJson &&config);
-
-    OpticalCavity build();//创建激光腔
-private:
-    ReJson m_config;
-};

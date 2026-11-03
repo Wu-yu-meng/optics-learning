@@ -6,7 +6,7 @@
 class SMF : public OpticalElement
 {
 public:
-    SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km);//单位依次为W^-1*m^-1、m、ps^2/km
+    SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km, double step_length_m);//单位依次为W^-1*m^-1、m、ps^2/km、m
     OpticalOutputs propagate(const OpticalInputs& input_optical_fields) override;//SMF传播函数
 private:
     void kerr(OpticalField &optical_field, double step_length_m) const;//原地计算Kerr非线性，不修改SMF参数
@@ -15,4 +15,5 @@ private:
     double m_gamma_per_w_m;//非线性系数、W^-1*m^-1
     double m_length_m;//光纤长度、m
     double m_beta2_ps2_per_km;//二阶色散系数、ps^2/km，可正可负
+    double m_step_length_m;//分段长度、m
 };

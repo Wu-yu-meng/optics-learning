@@ -28,6 +28,3 @@ private:
     BasicInfo m_basic_info;//光场的基本参数
 
 };
-
-
-OpticalField init_gauss_optical_field();//创建一个高斯光场

@@ -11,9 +11,11 @@
 #include <thread>
 #include <vector>
 #include "config/config.hpp"
-#include "Visualization.hpp"
+#include "UI/Visualization.hpp"
+#include "instrument/VirtualOpticalPowerVisualizer.hpp"
 #include <opencv2/highgui.hpp>
-#include "Builder.hpp"
+#include "construction/Builder.hpp"
+#include "construction/InitOpticalField.hpp"
 
 
 
@@ -23,7 +25,7 @@ int main()
     OC oc(0.9,0.98);
     PD pd(45.0);
     EDF edf(0.4,100,1.0,4.0,1.0e-6,20261018,10.0);//增益带宽与噪声带宽均4 THz，噪声能量1e-6 pJ/圈，种子不变
-    SMF smf(1.3e-2, 5.0,-21.7);
+    SMF smf(1.3e-2, 5.0,-21.7,static_cast<double>(CONFIG.config_["SMF"]["step_length_m"]));
     const std::vector<EPC::Retarder> epc_retarders{
         {0, 0.0, 0.0},
         {1, 45.0, 0.0},

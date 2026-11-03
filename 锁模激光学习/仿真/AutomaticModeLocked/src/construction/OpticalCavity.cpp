@@ -1,25 +1,11 @@
-#include "Builder.hpp"
+#include "construction/OpticalCavity.hpp"
 #include <functional>
 #include <utility>
-#include <functional>
 
 //腔内光运行一次
 void OpticalCavity::run_once()
 {
 
-    //默认一开始均为初始光场
-    if (m_loop == 0)
-    {
-        OpticalField initial_optical_field = init_gauss_optical_field();
-        for (const Element &element : m_elements)
-        {
-            for (const std::pair<const input_port_name,g_output_port_name> &connection : element.connections)
-            {
-                m_optical_field_map.emplace(connection.second,initial_optical_field);
-            }
-        }
-    }
-    
     //按照顺序开始
     for (const auto &element : m_elements)
     {
@@ -41,16 +27,4 @@ void OpticalCavity::run_once()
     }
     
     m_loop++;
-}
-
-
-
-Builder::Builder(ReJson &&config)
-    : m_config(std::move(config))
-{
-}
-
-OpticalCavity Builder::build()
-{
-    return OpticalCavity();
 }
