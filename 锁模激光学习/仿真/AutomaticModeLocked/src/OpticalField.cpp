@@ -27,10 +27,14 @@ OpticalField init_gauss_optical_field()
 {
     //更新配置文件
     CONFIG.updateJson();
+    return init_gauss_optical_field(CONFIG.config_);
+}
 
+OpticalField init_gauss_optical_field(const cv::FileStorage& config)
+{
     //读取科学常数和高斯初始光场的配置。
-    const cv::FileNode scientific_constants = CONFIG.config_["scientific_constants"];
-    const cv::FileNode gaussian_config = CONFIG.config_["init_gauss_optical_field"];
+    const cv::FileNode scientific_constants = config["scientific_constants"];
+    const cv::FileNode gaussian_config = config["init_gauss_optical_field"];
 
     //生成高斯光场所需的参数配置
     const double light_speed_m_per_s = static_cast<double>(scientific_constants["light_speed"]);//光速m/s

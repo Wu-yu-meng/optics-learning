@@ -4,9 +4,9 @@ set(project_name AutomaticModeLocked)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Eigen3 REQUIRED)
-find_package(OpenCV REQUIRED COMPONENTS core highgui imgproc)
+find_package(OpenCV REQUIRED COMPONENTS core)
 
-file(GLOB_RECURSE AutomaticModeLocked_src CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
+file(GLOB_RECURSE AutomaticModeLocked_src ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
 
 add_library(${project_name}_lib SHARED ${AutomaticModeLocked_src})
 
@@ -15,9 +15,19 @@ target_include_directories(${project_name}_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR
 
 
 target_link_libraries(${project_name}_lib PUBLIC Eigen3::Eigen)
-target_link_libraries(${project_name}_lib PRIVATE config_loader_lib opencv_core opencv_highgui opencv_imgproc)
+target_link_libraries(${project_name}_lib PUBLIC config_loader_lib opencv_core)
+target_link_libraries(${project_name}_lib PRIVATE opencv_imgproc)
 
 add_executable(${project_name} main.cpp)
 target_link_libraries(${project_name} PRIVATE
     ${project_name}_lib
+    opencv_highgui
 )
+
+option(AUTOMATIC_MODE_LOCKED_BUILD_TESTS "Build configured cavity regression test" ON)
+if(AUTOMATIC_MODE_LOCKED_BUILD_TESTS)
+    enable_testing()
+    add_executable(${project_name}_config_test tests/configured_cavity.cpp)
+    target_link_libraries(${project_name}_config_test PRIVATE ${project_name}_lib)
+    add_test(NAME configured_cavity COMMAND ${project_name}_config_test ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json)
+endif()

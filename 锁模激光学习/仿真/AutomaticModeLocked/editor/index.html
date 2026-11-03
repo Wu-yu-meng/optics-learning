@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f6f8">
+  <title>Cavity Lab · 光学腔配置工作台</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="model.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Cavity Lab 首页"><span class="brand-mark">∿</span><span>CAVITY<span class="brand-light">LAB</span><small>光学腔配置工作台</small></span></a>
+    <div class="topbar-middle"><span class="local-dot"></span>本地工作区 <span class="divider">/</span> <span id="project-label">默认五器件腔</span></div>
+    <div class="top-actions"><button id="import-button" class="button ghost">↑ 导入配置</button><button id="json-button" class="button ghost">{ } JSON</button><button id="export-button" class="button primary">↓ 导出配置</button></div>
+    <input id="import-file" type="file" accept=".json,application/json" hidden>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="sidebar-heading"><span class="eyebrow">EXPERIMENT</span><button id="reset-button" class="quiet-button" title="恢复默认五器件配置">重置示例</button></div>
+      <label class="project-name-label" for="project-name">实验名称</label><input id="project-name" class="project-name" value="默认五器件腔">
+      <div class="section-heading"><h2>光路器件 <span id="element-count" class="count">5</span></h2><span class="hint">拖动排序</span></div>
+      <ol id="element-list" class="element-list" aria-label="器件执行顺序"></ol>
+      <div class="section-heading library-heading"><h2>添加器件</h2><span class="hint">器件库</span></div>
+      <div id="library" class="library"></div>
+      <div class="sidebar-bottom"><span class="small-wave">⌁</span><div><strong>从光路到配置</strong><p>编辑 → 导出 JSON → 本地仿真</p></div></div>
+    </aside>
+    <main class="main-workspace">
+      <div class="workspace-heading"><div><div class="eyebrow">CAVITY DESIGN</div><h1>搭建你的光学腔<span class="heading-dot">.</span></h1><p>调整器件、连接与观测点，保存可复现的仿真实验。</p></div><div class="history-buttons"><button id="undo-button" class="icon-button" aria-label="撤销" title="撤销 Ctrl+Z">↶</button><button id="redo-button" class="icon-button" aria-label="重做" title="重做 Ctrl+Shift+Z">↷</button></div></div>
+      <section class="canvas-card" aria-label="光路预览">
+        <div class="canvas-toolbar"><div class="canvas-title"><span class="green-dot"></span>光路预览 <span class="pill">有序腔</span></div><label class="switch-label"><input id="auto-connect" type="checkbox" checked><span class="switch"></span>自动串联</label></div>
+        <div id="diagram-scroll" class="diagram-scroll"><div id="diagram" class="diagram"></div></div>
+        <div class="canvas-footer"><span><i class="line-key"></i>光场连接</span><span><i class="line-key dashed"></i>反馈路径</span><span class="canvas-tip">点击器件查看参数 · 拖动左侧列表调整顺序</span></div>
+      </section>
+      <div id="summary" class="summary-grid"></div>
+      <section class="details-card">
+        <div class="tabs" role="tablist" aria-label="配置分类"><button role="tab" aria-selected="true" data-tab="device">器件参数</button><button role="tab" aria-selected="false" data-tab="sampling">采样与运行</button><button role="tab" aria-selected="false" data-tab="observations">观测点 <span id="observation-count" class="tab-count">2</span></button></div>
+        <div id="detail-panel" class="detail-panel"></div>
+      </section>
+      <section class="validation-bar" aria-live="polite"><div id="validation-status"></div><button id="validation-detail-button" class="quiet-button">查看校验</button></section>
+      <div class="model-note">当前模型按列表顺序推进一圈；反馈以缓存光场初始化，尚不包含不同环长的物理时延同步。页面用于编辑配置，仿真在本地 C++ 程序中运行。</div>
+    </main>
+  </div>
+  <dialog id="json-dialog"><div class="dialog-heading"><div><span class="eyebrow">CONFIGURATION</span><h2>实验配置 JSON</h2></div><button data-close="json-dialog" class="icon-button" aria-label="关闭JSON窗口">×</button></div><textarea id="json-editor" spellcheck="false" aria-label="配置JSON"></textarea><div class="dialog-actions"><span id="json-error" role="alert"></span><button id="copy-json-button" class="button ghost">复制 JSON</button><button id="apply-json-button" class="button primary">应用修改</button></div></dialog>
+  <dialog id="validation-dialog"><div class="dialog-heading"><h2>配置校验</h2><button data-close="validation-dialog" class="icon-button" aria-label="关闭校验窗口">×</button></div><div id="validation-details"></div><p class="help-text">导出的文件使用 version 1 格式，可通过程序的 --config 参数直接加载。</p></dialog>
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>

@@ -1,91 +1,219 @@
-#include "OpticalField.hpp"
-#include "OpticalFieldVisualization.hpp"
-#include "VirtualOscilloscope.hpp"
-#include "OC.hpp"
-#include "PD.hpp"
-#include "EDF.hpp"
-#include "EPC.hpp"
-#include "SMF.hpp"
-#include <cstddef>
-#include <exception>
+#include "Builder.hpp"
+#include "Visualization.hpp"
+#include "optical_element/EPC.hpp"
+#include <charconv>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
-#include <utility>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
-//消融测试：保留可视化、EDF带宽/噪声及固定拨片，本轮恢复SMF对称分步。
-int main()
+struct ObservationWindow
+{
+    std::string window_id;//Qt内部使用英文标识
+    std::string source;
+    std::unique_ptr<VirtualOpticalPowerVisualizer> instrument;
+};
+
+struct EPCSlider
+{
+    std::string window_id;
+    std::string trackbar_name;
+    std::string element_name;
+    int retarder_id;
+    int last_position;//未移动滑条时保留配置中的小数相位
+};
+
+int main(int argc, char **argv)
 {
     try
     {
-        OC oc(0.9, 0.98);
-        PD pd(45.0);
-        //保留已对齐的参数、4 THz有限增益带宽和每圈1e-6 pJ噪声，使用固定种子。
-        EDF edf(0.4, 100.0, 1.0, 4.0, 1.0e-6, 20261018);
-        //恢复SMF对称分步：目标单步非线性相移0.05 rad，最多256段；其余消融配置不变。
-        SMF smf(1.3e-2, 5.0, -21.7);
-        EPC epc({
-            {0, 0.0, 0.0},
-            {1, 45.0, 0.0},
-            {2, 0.0, 0.0},
-            {3, 45.0, 0.0},
-        });
-
-        //只加回test的固定虚拟四分之一波片：主轴22.5°，相位延迟90°。
-        //放在PD之后、SMF之前，将线偏振变为椭圆偏振；不受四个EPC滑块控制。
-        const EPC smf_input_retarder({
-            {0, 22.5, 90.0},
-        });
-
-        //观测只读取OC输出，不改变腔内光场或推进EDF随机数状态。
-        VirtualOscilloscope oscilloscope(0.9, 50.0, 200.0, 30.0);
-        OpticalFieldVisualization visualization(4);
-        OpticalField optical_field = init_gauss_optical_field();
-        std::size_t loop_count = 0;
-
-        //第0圈尚未经过EDF/EPC，只预览初始场按OC分光比例得到的信号。
-        OpticalField oc_extracted_field = oc.propagate(optical_field).extracted;
-        auto oscilloscope_signal = oscilloscope.detect(oc_extracted_field);
-
-        while (true)
+        std::string config_path = (std::filesystem::path(__FILE__).parent_path() / "config/config.json").string();
+        std::string metrics_path;
+        bool headless = false;
+        bool validate_only = false;
+        size_t rounds = 0;
+        for (int index = 1; index < argc; ++index)
         {
-            //暂停、AUTO和调滑块只刷新观测，不额外推进传播或生成噪声。
-            const auto command = visualization.update(optical_field, oscilloscope_signal, loop_count);
-            if (command.should_exit)
-                break;
-
-            //四个滑块只设置下一圈的EPC相位。
-            for (std::size_t index = 0; index < command.epc_delta_phase_deg.size(); ++index)
-                epc.set_retarder(static_cast<int>(index), command.epc_delta_phase_deg[index]);
-
-            if (command.should_reset)
+            const std::string argument = argv[index];
+            if (argument == "--help" || argument == "-h")
             {
-                optical_field = init_gauss_optical_field();
-                edf.reset_noise();
-                oc_extracted_field = oc.propagate(optical_field).extracted;
-                oscilloscope_signal = oscilloscope.detect(oc_extracted_field);
-                loop_count = 0;
-                continue;
+                std::cout << "AutomaticModeLocked [--config FILE] [--validate-only]\n"
+                          << "                    [--headless] [--rounds N] [--metrics FILE.csv]\n"
+                          << "GUI: Space run/pause | D step | A AUTO | R reset | Q/Esc quit\n";
+                return 0;
             }
-            if (!command.should_propagate)
-                continue;
-
-            //其余器件顺序不变，只在PD与SMF之间加入固定拨片。
-            OpticalField edf_output = edf.propagate(optical_field);
-            OpticalField epc_output = epc.propagate(edf_output);
-            OC::OutputField oc_output = oc.propagate(epc_output);
-            OpticalField pd_output = pd.propagate(oc_output.cavity);
-            OpticalField smf_input = smf_input_retarder.propagate(pd_output);
-            optical_field = smf.propagate(smf_input);
-
-            //示波器缓存本圈实际的OC输出；腔内功率和光谱的观测位置是SMF之后。
-            oc_extracted_field = std::move(oc_output.extracted);
-            oscilloscope_signal = oscilloscope.detect(oc_extracted_field);
-            ++loop_count;
+            if (argument == "--headless")
+                headless = true;
+            else if (argument == "--validate-only")
+                validate_only = true;
+            else if (argument == "--config" || argument == "--metrics" || argument == "--rounds")
+            {
+                if (index + 1 == argc)
+                    throw std::invalid_argument(argument + "：缺少参数");
+                const std::string value = argv[++index];
+                if (argument == "--config")
+                    config_path = value;
+                else if (argument == "--metrics")
+                    metrics_path = value;
+                else
+                {
+                    const std::from_chars_result result = std::from_chars(value.data(),value.data() + value.size(),rounds);
+                    if (result.ec != std::errc() || result.ptr != value.data() + value.size() || rounds == 0)
+                        throw std::invalid_argument("--rounds：需要正整数");
+                }
+            }
+            else
+                throw std::invalid_argument("未知参数：" + argument);
         }
+
+        Builder builder{ReJson{config_path}};
+        OpticalCavity cavity = builder.build();
+        std::cout << "Config: " << std::filesystem::absolute(config_path) << '\n';
+        cavity.describe();
+        if (validate_only)
+        {
+            std::cout << "Configuration valid.\n";
+            return 0;
+        }
+
+        const OpticalCavity::Runtime &runtime = cavity.runtime();
+        if (cavity.observations().empty() && (!runtime.epc_controls || cavity.epc_names().empty()))
+        {
+            headless = true;
+            std::cout << "No windows configured; using headless mode.\n";
+        }
+        const size_t max_rounds = rounds != 0 ? rounds : runtime.max_rounds != 0 ? runtime.max_rounds : headless ? 100 : 0;
+        std::ofstream metrics;
+        if (!metrics_path.empty())
+        {
+            metrics.open(metrics_path);
+            if (!metrics)
+                throw std::runtime_error("无法写入指标文件：" + metrics_path);
+            metrics << "round,source,peak_w,energy_pj\n" << std::setprecision(17);
+        }
+        const auto record_metrics = [&]()
+        {
+            for (const OpticalCavity::Observation &observation : cavity.observations())
+            {
+                const OpticalField &field = cavity.field(observation.source);
+                const Eigen::RowVectorXd power = field.polarization().cwiseAbs2().colwise().sum();
+                metrics << cavity.loop_count() << ',' << observation.source << ',' << power.maxCoeff() << ','
+                        << power.sum() * field.basic_info().sample_stride * 1.0e-3 << '\n';
+            }
+        };
+
+        std::vector<ObservationWindow> windows;
+        std::vector<EPCSlider> sliders;
+        if (!headless)
+        {
+            for (const OpticalCavity::Observation &observation : cavity.observations())
+            {
+                const std::string window_id = "OpticalObservation" + std::to_string(windows.size());
+                std::unique_ptr<VirtualOpticalPowerVisualizer> instrument = std::make_unique<VirtualOpticalPowerVisualizer>(observation.name);
+                cv::namedWindow(window_id,cv::WINDOW_NORMAL);
+                cv::setWindowTitle(window_id,instrument->name() + " | Space: run/pause  D: step  A: AUTO  R: reset  Q: quit");
+                windows.push_back(ObservationWindow{window_id,observation.source,std::move(instrument)});
+            }
+            if (runtime.epc_controls)
+            {
+                for (const std::string &name : cavity.epc_names())
+                {
+                    const std::string window_id = "EPCControls" + std::to_string(sliders.size());
+                    cv::namedWindow(window_id,cv::WINDOW_NORMAL);
+                    cv::setWindowTitle(window_id,"EPC - " + name);
+                    cv::Mat controls(100,720,CV_8UC3,cv::Scalar(28,28,28));
+                    cv::putText(controls,name + " | phase (deg)",{22,40},cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(225,225,225),1,cv::LINE_AA);
+                    cv::putText(controls,"Space: run/pause  D: step  A: AUTO  R: reset  Q: quit",{22,76},cv::FONT_HERSHEY_SIMPLEX,0.45,cv::Scalar(160,160,160),1,cv::LINE_AA);
+                    cv::imshow(window_id,controls);
+                    const EPC &epc = dynamic_cast<EPC&>(cavity.element(name));
+                    for (const EPC::Retarder &retarder : epc.retarders())
+                    {
+                        const std::string trackbar_name = "CH" + std::to_string(retarder.ID + 1) + " phase (deg)";
+                        const int position = static_cast<int>(retarder.delta_phase_deg);
+                        cv::createTrackbar(trackbar_name,window_id,nullptr,360);
+                        cv::setTrackbarPos(trackbar_name,window_id,position);
+                        sliders.push_back(EPCSlider{window_id,trackbar_name,name,retarder.ID,position});
+                    }
+                }
+            }
+        }
+        const auto render = [&]()
+        {
+            for (const ObservationWindow &window : windows)
+                cv::imshow(window.window_id,window.instrument->measure(cavity.loop_count(),cavity.field(window.source)));
+        };
+        const auto auto_size = [&]()
+        {
+            for (const ObservationWindow &window : windows)
+                window.instrument->auto_size();
+        };
+        if (!headless)
+            render();
+        if (metrics.is_open())
+            record_metrics();
+
+        bool is_running = !runtime.start_paused;
+        const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        while (max_rounds == 0 || cavity.loop_count() < max_rounds)
+        {
+            bool single_step = false;
+            if (!headless)
+            {
+                const int key = cv::waitKey(runtime.frame_delay_ms);
+                if (key == 'q' || key == 'Q' || key == 27)
+                    break;
+                if (key == ' ')
+                    is_running = !is_running;
+                if (key == 'a' || key == 'A')
+                {
+                    auto_size();
+                    render();//暂停时也能重新调整画幅，不推进光场和随机数状态。
+                }
+                if (key == 'r' || key == 'R')
+                {
+                    cavity.reset();
+                    auto_size();
+                    render();
+                    continue;
+                }
+                single_step = key == 'd' || key == 'D';
+                if (single_step)
+                    is_running = false;
+                if (!is_running && !single_step)
+                    continue;
+                for (EPCSlider &slider : sliders)
+                {
+                    const int position = cv::getTrackbarPos(slider.trackbar_name,slider.window_id);
+                    if (position != slider.last_position)
+                    {
+                        dynamic_cast<EPC&>(cavity.element(slider.element_name)).set_retarder(slider.retarder_id,position);
+                        slider.last_position = position;
+                    }
+                }
+            }
+
+            cavity.run_once();
+            if (metrics.is_open())
+                record_metrics();
+            if (!headless && (single_step || cavity.loop_count() % runtime.render_every_n_rounds == 0))
+                render();
+        }
+        const double elapsed_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        std::cout << "Finished: " << cavity.loop_count() << " rounds in " << elapsed_s << " s\n";
+        if (!headless)
+            cv::destroyAllWindows();
+        return 0;
     }
-    catch (const std::exception& exception)
+    catch (const std::exception &error)
     {
-        std::cerr << exception.what() << '\n';
+        std::cerr << "配置或运行错误：" << error.what() << '\n';
         return 1;
     }
-    return 0;
 }

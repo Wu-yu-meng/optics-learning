@@ -15,8 +15,4 @@ Spectrum forward(const OpticalField &optical_field);
 //逆变换采用正指数，并除以频谱点数，保证inverse(forward(A))恢复A。
 OpticalField::Polarization inverse(const Spectrum &input);
 
-//复用传入的Eigen矩阵存储结果；内部仍需OpenCV工作矩阵，不是零复制。
-void forward_in_place(OpticalField::Polarization &polarization);
-void inverse_in_place(Spectrum &spectrum);
-
 }//namespace DFT

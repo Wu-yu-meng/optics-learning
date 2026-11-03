@@ -1,4 +1,4 @@
-#include "EPC.hpp"
+#include "optical_element/EPC.hpp"
 #include <algorithm>
 #include <stdexcept>
 
@@ -44,8 +44,10 @@ EPC::EPC(const std::vector<Retarder> &retarders) : m_retarders(retarders)
 
 }
 
-OpticalField EPC::propagate(const OpticalField &input_optical_field) const
+OpticalOutputs EPC::propagate(const OpticalInputs &input_optical_fields)
 {
+    const OpticalField& input_optical_field = input_optical_fields.at("in").get();
+
     //计算等效的琼斯矩阵
     Eigen::Matrix<std::complex<double>, 2, 2> total_jones_matrix = this->total_jones_matrix();
     
@@ -53,7 +55,9 @@ OpticalField EPC::propagate(const OpticalField &input_optical_field) const
     OpticalField::Polarization polarization = total_jones_matrix * input_optical_field.polarization();
 
     //返回
-    return OpticalField{std::move(polarization), input_optical_field.basic_info()};
+    OpticalOutputs output_fields;
+    output_fields.emplace("out",OpticalField{std::move(polarization), input_optical_field.basic_info()});
+    return output_fields;
 }
 
 void EPC::set_retarder(int ID, double delta_phase_deg)
@@ -66,6 +70,11 @@ void EPC::set_retarder(int ID, double delta_phase_deg)
 
     //设置相位差
     m_retarders[ID].delta_phase_deg = delta_phase_deg;
+}
+
+const std::vector<EPC::Retarder>& EPC::retarders() const
+{
+    return m_retarders;
 }
 
 Eigen::Matrix<std::complex<double>, 2, 2> EPC::total_jones_matrix() const

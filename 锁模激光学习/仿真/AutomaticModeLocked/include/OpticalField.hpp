@@ -3,6 +3,11 @@
 #include <complex>
 #include <Eigen/Core>
 
+namespace cv
+{
+    class FileStorage;
+}
+
 //光场类
 class OpticalField
 {
@@ -31,3 +36,4 @@ private:
 
 
 OpticalField init_gauss_optical_field();//创建一个高斯光场
+OpticalField init_gauss_optical_field(const cv::FileStorage& config);//使用指定配置创建高斯光场

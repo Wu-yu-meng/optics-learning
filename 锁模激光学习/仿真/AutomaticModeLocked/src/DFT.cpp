@@ -5,50 +5,86 @@
 
 namespace DFT
 {
-namespace
-{
-void transform_in_place(Spectrum &values, bool inverse)
-{
-    if (values.cols() == 0 || values.cols() > std::numeric_limits<int>::max())
-        throw std::invalid_argument("[DFT]采样点数必须大于0且不能超过OpenCV支持的范围");
-    const int sample_size = static_cast<int>(values.cols());
-    cv::Mat data(2, sample_size, CV_64FC2);
-    //Eigen按列存储，OpenCV按行存储，仍需复制到工作矩阵。
-    for (int row = 0; row < 2; ++row)
-        for (int column = 0; column < sample_size; ++column)
-        {
-            const auto value = values(row, column);
-            data.at<cv::Vec2d>(row, column) = {value.real(), value.imag()};
-        }
-    //逆变换除以N；保持点数和原始频点顺序不变。
-    const int flags = cv::DFT_ROWS | (inverse ? cv::DFT_INVERSE | cv::DFT_SCALE : 0);
-    cv::dft(data, data, flags);
-    for (int row = 0; row < 2; ++row)
-        for (int column = 0; column < sample_size; ++column)
-        {
-            const auto value = data.at<cv::Vec2d>(row, column);
-            values(row, column) = {value[0], value[1]};
-        }
-}
-}
-void forward_in_place(OpticalField::Polarization &polarization)
-{
-    transform_in_place(polarization, false);
-}
-void inverse_in_place(Spectrum &spectrum)
-{
-    transform_in_place(spectrum, true);
-}
+
 Spectrum forward(const OpticalField &optical_field)
 {
-    Spectrum spectrum = optical_field.polarization();
-    forward_in_place(spectrum);
+    const auto &polarization = optical_field.polarization();
+    if (polarization.cols() == 0)
+    {
+        throw std::invalid_argument("[DFT]正变换的采样点数必须大于0");
+    }
+    if (polarization.cols() > std::numeric_limits<int>::max())
+    {
+        throw std::invalid_argument("[DFT]采样点数超过OpenCV支持的范围");
+    }
+
+    const int sample_size = static_cast<int>(polarization.cols());
+    cv::Mat data(2, sample_size, CV_64FC2);
+
+    //将Eigen的两行复包络复制为OpenCV复数矩阵，每个元素保存实部和虚部。
+    for (int row = 0; row < 2; ++row)
+    {
+        for (int i = 0; i < sample_size; ++i)
+        {
+            const auto value = polarization(row, i);
+            data.at<cv::Vec2d>(row, i) = cv::Vec2d(value.real(), value.imag());
+        }
+    }
+
+    //分别对x、y两行进行一维正变换
+    cv::dft(data, data, cv::DFT_ROWS);
+
+    //赋值
+    Spectrum spectrum(2, sample_size);
+    for (int row = 0; row < 2; ++row)
+    {
+        for (int i = 0; i < sample_size; ++i)
+        {
+            const auto value = data.at<cv::Vec2d>(row, i);
+            spectrum(row, i) = std::complex<double>(value[0], value[1]);
+        }
+    }
+
     return spectrum;
 }
+
 OpticalField::Polarization inverse(const Spectrum &input)
 {
-    OpticalField::Polarization polarization = input;
-    inverse_in_place(polarization);
+    if (input.cols() == 0)
+    {
+        throw std::invalid_argument("[DFT]逆变换的频谱点数必须大于0");
+    }
+    if (input.cols() > std::numeric_limits<int>::max())
+    {
+        throw std::invalid_argument("[DFT]频谱点数超过OpenCV支持的范围");
+    }
+    //保持输入点数不变，完整频谱都参与逆变换。
+    const int spectrum_size = static_cast<int>(input.cols());
+    cv::Mat data(2, spectrum_size, CV_64FC2);
+    for (int row = 0; row < 2; ++row)
+    {
+        for (int i = 0; i < spectrum_size; ++i)
+        {
+            const auto value = input(row, i);
+            data.at<cv::Vec2d>(row, i) = cv::Vec2d(value.real(), value.imag());
+        }
+    }
+
+    //DFT_SCALE按每行的完整频谱点数归一化，恢复原来的复包络振幅。
+    cv::dft(data, data, cv::DFT_ROWS | cv::DFT_INVERSE | cv::DFT_SCALE);
+
+    //赋值
+    OpticalField::Polarization polarization(2, spectrum_size);
+    for (int row = 0; row < 2; ++row)
+    {
+        for (int i = 0; i < spectrum_size; ++i)
+        {
+            const auto value = data.at<cv::Vec2d>(row, i);
+            polarization(row, i) = std::complex<double>(value[0], value[1]);
+        }
+    }
+
     return polarization;
 }
+
 }//namespace DFT
