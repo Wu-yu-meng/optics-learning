@@ -9,7 +9,7 @@ public:
     Builder() = delete;
     Builder(ReJson &&config);
 
-    OpticalCavity build();//创建激光腔
+    OpticalCavity build(Channel<CavityMessage> &cavity_channel, Channel<UIMessage> &ui_channel);//创建激光腔
 private:
     ReJson m_config;
 };

@@ -1,5 +1,6 @@
 #include "optical_element/EPC.hpp"
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 
 EPC::EPC(const std::vector<Retarder> &retarders) : m_retarders(retarders)
@@ -66,6 +67,12 @@ void EPC::set_retarder(int ID, double delta_phase_deg)
     if (ID > m_retarders.size() - 1 || ID < 0)
     {
         throw std::runtime_error("[EPC]设置了无效的ID");
+    }
+
+    //非有限相位不能用于构造琼斯矩阵，检查通过前不修改状态。
+    if (!std::isfinite(delta_phase_deg))
+    {
+        throw std::invalid_argument("[EPC]相位差必须是有限数值");
     }
 
     //设置相位差

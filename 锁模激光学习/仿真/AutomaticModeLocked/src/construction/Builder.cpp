@@ -16,7 +16,7 @@ Builder::Builder(ReJson &&config)
 {
 }
 
-OpticalCavity Builder::build()
+OpticalCavity Builder::build(Channel<CavityMessage> &cavity_channel, Channel<UIMessage> &ui_channel)
 {
     //读取配置文件中的参数。构建element
     const cv::FileNode elements_config = m_config.config_["elements"];
@@ -176,7 +176,7 @@ OpticalCavity Builder::build()
     }
 
     //逆后序是忽略反馈边后的拓扑顺序，单环从start_element开始执行
-    OpticalCavity cavity;
+    OpticalCavity cavity(cavity_channel,ui_channel);
     for (std::vector<size_t>::const_reverse_iterator index = post_order.rbegin(); index != post_order.rend(); ++index)
     {
         cavity.m_elements.push_back(std::move(elements[*index]));

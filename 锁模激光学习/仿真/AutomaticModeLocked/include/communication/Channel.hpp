@@ -20,6 +20,25 @@ private:
     };
 
 public:
+    class Publisher
+    {
+        friend class Channel<T>;
+
+    public:
+        void publish(const DataPtr &data) const
+        {
+            m_channel.publish(data);
+        }
+
+    private:
+        explicit Publisher(Channel<T> &channel)
+            : m_channel(channel)
+        {
+        }
+
+        Channel<T> &m_channel;
+    };
+
     class Subscriber
     {
         friend class Channel<T>;
@@ -56,6 +75,11 @@ public:
     Channel() = default;
     Channel(const Channel&) = delete;
     Channel& operator=(const Channel&) = delete;
+
+    Publisher create_publisher()
+    {
+        return Publisher(*this);
+    }
 
     //只接收订阅者创建之后发布的消息。
     Subscriber create_subscriber()
