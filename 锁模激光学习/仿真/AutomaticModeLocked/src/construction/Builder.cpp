@@ -25,6 +25,8 @@ OpticalCavity Builder::build()
     std::vector<OpticalCavity::Element> elements;
     std::unordered_map<std::string,size_t> element_indices;//器件名称对应的编号
     std::unordered_map<std::string,size_t> output_indices;//完整输出端口名对应的器件编号
+    
+    //构造器件
     for (const cv::FileNode &element_config : elements_config)
     {
         OpticalCavity::Element element;

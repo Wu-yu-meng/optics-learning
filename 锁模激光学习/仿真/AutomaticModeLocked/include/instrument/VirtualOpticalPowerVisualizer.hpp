@@ -1,5 +1,5 @@
 #pragma once
-#include "OpticalField.hpp"
+#include "communication/OpticalField.hpp"
 #include <atomic>
 #include <string>
 #include<opencv2/opencv.hpp>

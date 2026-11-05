@@ -1,5 +1,5 @@
 #pragma once
-#include "OpticalField.hpp"
+#include "communication/OpticalField.hpp"
 #include <functional>
 #include <string>
 #include <unordered_map>

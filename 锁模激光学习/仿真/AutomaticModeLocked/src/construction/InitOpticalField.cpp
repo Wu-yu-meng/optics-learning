@@ -5,14 +5,6 @@
 #include <stdexcept>
 #include <utility>
 
-OpticalField init_gauss_optical_field()
-{
-    //更新配置文件
-    CONFIG.updateJson();
-
-    return init_gauss_optical_field(CONFIG.config_.root());
-}
-
 OpticalField init_gauss_optical_field(const cv::FileNode &basic_config)
 {
     //读取科学常数和高斯初始光场的配置。

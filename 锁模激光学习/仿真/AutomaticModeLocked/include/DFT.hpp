@@ -1,6 +1,6 @@
 #pragma once
 
-#include "OpticalField.hpp"
+#include "communication/OpticalField.hpp"
 #include <complex>
 #include <Eigen/Core>
 

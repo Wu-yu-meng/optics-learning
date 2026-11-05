@@ -13,8 +13,11 @@ class OpticalCavity
 friend Builder;
 
 public:
-    void run_once();
+    void run();//运行线程
 private:
+
+    void run_once();//运行一次
+    void apply_command();//调度指令
 
     using g_output_port_name = std::string;//g_output_port_name = 唯一器件名称 + 器件端输出口名 
     using input_port_name = std::string;//input_port_name = 器件输入端口名

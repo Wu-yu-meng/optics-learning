@@ -1,4 +1,4 @@
-#include "OpticalField.hpp"
+#include "communication/OpticalField.hpp"
 #include "optical_element/OC.hpp"
 #include "optical_element/PD.hpp"
 #include "optical_element/EDF.hpp"
@@ -11,7 +11,7 @@
 #include <thread>
 #include <vector>
 #include "config/config.hpp"
-#include "UI/Visualization.hpp"
+#include "UI/UIManager.hpp"
 #include "instrument/VirtualOpticalPowerVisualizer.hpp"
 #include <opencv2/highgui.hpp>
 #include "construction/Builder.hpp"
@@ -34,8 +34,8 @@ int main()
     };
     EPC epc(epc_retarders);
 
-    OpticalField optical_field =  init_gauss_optical_field();//初始化高斯光场
-    OpticalField oc_extracted_field =  init_gauss_optical_field();//OC的分光
+    OpticalField optical_field =  init_gauss_optical_field(CONFIG_TEST.config_["basic_config"]);//初始化高斯光场
+    OpticalField oc_extracted_field =  init_gauss_optical_field(CONFIG_TEST.config_["basic_config"]);//OC的分光
     size_t loop_count = 0;//腔内循环次数
 
     VirtualOpticalPowerVisualizer power_visualizer_test("test");
