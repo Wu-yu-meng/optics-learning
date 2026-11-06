@@ -11,12 +11,13 @@ class Channel
 {
 public:
     using DataPtr = std::shared_ptr<const T>;
+    using MessageQueue = std::deque<DataPtr>;
 
 private:
     struct SubscriberState
     {
         std::mutex mutex;
-        std::deque<DataPtr> messages;
+        MessageQueue messages;
     };
 
 public:
@@ -49,18 +50,15 @@ public:
         Subscriber(Subscriber&&) = default;
         Subscriber& operator=(Subscriber&&) = default;
 
-        //取出自己队列中最早的消息，没有消息时立即返回空指针。
-        DataPtr receive()
+        //一次取出自己当前排队的全部消息，保留FIFO顺序，没有消息时返回空队列。
+        MessageQueue receive()
         {
-            std::lock_guard<std::mutex> lock(m_state->mutex);
-            if (m_state->messages.empty())
+            MessageQueue messages;
             {
-                return nullptr;
+                std::lock_guard<std::mutex> lock(m_state->mutex);
+                messages.swap(m_state->messages);//交换后新发布的消息留在订阅队列中，供下次接收。
             }
-
-            DataPtr data = std::move(m_state->messages.front());
-            m_state->messages.pop_front();
-            return data;
+            return messages;
         }
 
     private:

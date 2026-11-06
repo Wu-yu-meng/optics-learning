@@ -1,7 +1,11 @@
 #include "construction/OpticalCavity.hpp"
 #include "communication/messages/CommandResultMessage.hpp"
+#include "communication/messages/InstrumentFrameMessage.hpp"
+#include "communication/messages/CavityStoppedMessage.hpp"
+#include <chrono>
 #include <functional>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 
 OpticalCavity::OpticalCavity(Channel<CavityMessage> &cavity_channel, Channel<UIMessage> &ui_channel)
@@ -12,9 +16,52 @@ OpticalCavity::OpticalCavity(Channel<CavityMessage> &cavity_channel, Channel<UIM
 
 void OpticalCavity::run()
 {
-    
+    publish_observations();//发布已经初始化的观测点画面。
+    while (!m_stopped)
+    {
 
+        apply_command();//处理UI的指令
+        if (m_stopped)
+        {
+            break;
+        }
+        if (m_running)
+        {
+            run_once();//运行一次计算
+            publish_observations();//发布观测
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));//暂停时仍接收指令。
+        }
+    }
+    m_publisher.publish(std::make_shared<CavityStoppedMessage>());
+}
 
+void OpticalCavity::stop()
+{
+    m_stopped = true;
+}
+
+void OpticalCavity::set_running(bool running)
+{
+    m_running = running;
+}
+
+void OpticalCavity::publish_observations()
+{
+    for (Observation &observation : m_observations)
+    {
+        const std::unordered_map<g_output_port_name,OpticalField>::const_iterator source = m_optical_field_map.find(observation.source);
+        //未参与反馈初始化的输出端口，等第一圈传播产生光场后再观测。
+        if (source == m_optical_field_map.end())
+        {
+            continue;
+        }
+
+        cv::Mat image = observation.instrument_ptr->measure(m_loop,source->second);
+        m_publisher.publish(std::make_shared<InstrumentFrameMessage>(observation.my_name,observation.instrument_ptr->name(),observation.source,m_loop,std::move(image)));
+    }
 }
 
 OpticalElement &OpticalCavity::get_element(const std::string &element_name)
@@ -31,10 +78,24 @@ OpticalElement &OpticalCavity::get_element(const std::string &element_name)
     throw std::invalid_argument("[OpticalCavity]没有找到器件：" + element_name);
 }
 
+Instrument &OpticalCavity::get_instrument(const std::string &instrument_name)
+{
+    for (Observation &observation : m_observations)
+    {
+        if (observation.my_name == instrument_name)
+        {
+            return *observation.instrument_ptr;
+        }
+    }
+
+    throw std::invalid_argument("[OpticalCavity]没有找到仪器：" + instrument_name);
+}
+
 void OpticalCavity::apply_command()
 {
-    //按FIFO顺序执行，不需要判断消息的具体子类型。
-    while (Channel<UIMessage>::DataPtr message = m_subscriber.receive())
+    //只处理本次取出的FIFO消息，处理期间新入队的指令留到下一轮。
+    const Channel<UIMessage>::MessageQueue messages = m_subscriber.receive();
+    for (const Channel<UIMessage>::DataPtr &message : messages)
     {
         bool success = true;
         std::string reason;
@@ -50,6 +111,10 @@ void OpticalCavity::apply_command()
 
         //单条指令失败后仍继续处理下一条，结果交给UI读取。
         m_publisher.publish(std::make_shared<CommandResultMessage>(success,reason));
+        if (m_stopped)
+        {
+            break;//终止指令之后不再执行本批次剩余操作。
+        }
     }
 }
 

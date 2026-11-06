@@ -17,3 +17,17 @@
 1. 编写实际环境中的数据读取算法
 2. 移植反馈算法
 3. 测试
+
+当前框架的启动方式（在仓库根目录运行）：
+
+```bash
+./build/AutomaticModeLocked/AutomaticModeLocked
+```
+
+固定读取本目录中的 `config/config.json`，入口为 `int main()`，不接收命令行配置路径。Builder和UIManager分别读取同一路径，UI不持有光学腔实例。
+
+启动时暂停。Space切换运行与暂停，D单步传播一圈，A对全部仪器执行AUTO，Q/Esc或关闭任意窗口终止。控制面板中的EPC滑动条会发送相位设置指令，CH1对应器件通道ID 0。
+
+仪器由配置的 `instruments` 数组构造，`source` 指定被观测的输出端口。仪器在计算线程生成图片，UI接收整批消息后只显示每台仪器的最新一帧。AUTO在暂停时也会重绘，圈数保持不变。
+
+目前可配置的仪器是 `VirtualOpticalPowerVisualizer`。`Oscilloscope` 和 `OpticalSpectrumAnalyzer` 的测量功能仍待实现。

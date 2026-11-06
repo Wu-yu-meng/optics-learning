@@ -5,14 +5,16 @@
 #include "optical_element/EPC.hpp"
 #include "optical_element/OC.hpp"
 #include "optical_element/PD.hpp"
+#include "instrument/VirtualOpticalPowerVisualizer.hpp"
 #include <algorithm>
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <unordered_set>
 #include <utility>
 
-Builder::Builder(ReJson &&config)
-    : m_config(std::move(config))
+Builder::Builder(const std::string &config_path)
+    : m_config(config_path)
 {
 }
 
@@ -190,6 +192,49 @@ OpticalCavity Builder::build(Channel<CavityMessage> &cavity_channel, Channel<UIM
         {
             cavity.m_optical_field_map.emplace(connection.second,initial_optical_field);
         }
+    }
+
+    //构造仪器并绑定观测端口，观测关系不参与光路排序。
+    const cv::FileNode instruments_config = m_config.config_["instruments"];
+    if (!instruments_config.empty() && !instruments_config.isSeq())
+    {
+        throw std::invalid_argument("[Builder]instruments必须是数组");
+    }
+    std::unordered_set<std::string> instrument_names;
+    for (const cv::FileNode &instrument_config : instruments_config)
+    {
+        OpticalCavity::Observation observation;
+        observation.my_name = static_cast<std::string>(instrument_config["name"]);
+        observation.source = static_cast<std::string>(instrument_config["source"]);
+        const std::string type = static_cast<std::string>(instrument_config["type"]);
+        if (observation.my_name.empty() || !instrument_names.emplace(observation.my_name).second)
+        {
+            throw std::invalid_argument("[Builder]仪器名称为空或重复：" + observation.my_name);
+        }
+        //使用实际输出端口列表检查，允许观测未连接后续器件的OC提取端。
+        if (!output_indices.contains(observation.source))
+        {
+            throw std::invalid_argument("[Builder]仪器引用了不存在的输出端口：" + observation.source);
+        }
+
+        if (type == "VirtualOpticalPowerVisualizer")
+        {
+            //当前光功率仪只有名称参数，parameters保留为空对象。
+            if (instrument_config["parameters"].size() != 0)
+            {
+                throw std::invalid_argument("[Builder]光功率仪当前不支持额外参数：" + observation.my_name);
+            }
+            observation.instrument_ptr = std::make_unique<VirtualOpticalPowerVisualizer>(observation.my_name);
+        }
+        else if (type == "Oscilloscope" || type == "OpticalSpectrumAnalyzer")
+        {
+            throw std::invalid_argument("[Builder]仪器的测量功能尚未实现：" + type);
+        }
+        else
+        {
+            throw std::invalid_argument("[Builder]未知的仪器类型：" + type);
+        }
+        cavity.m_observations.push_back(std::move(observation));
     }
 
     return cavity;

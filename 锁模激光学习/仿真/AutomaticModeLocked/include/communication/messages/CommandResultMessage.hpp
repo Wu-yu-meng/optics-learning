@@ -6,6 +6,7 @@
 struct CommandResultMessage : public CavityMessage
 {
     CommandResultMessage(bool success,const std::string &reason);
+    void apply(UIManager &ui) const override;
 
     bool success;//是否执行成功
     std::string reason;//失败原因，成功时为空

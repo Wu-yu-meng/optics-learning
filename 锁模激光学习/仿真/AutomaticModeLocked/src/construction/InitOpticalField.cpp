@@ -1,5 +1,4 @@
 #include "construction/InitOpticalField.hpp"
-#include "config/config.hpp"
 #include <cmath>
 #include <numbers>
 #include <stdexcept>

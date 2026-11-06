@@ -1,21 +1,118 @@
 {
-    "scientific_constants":
+    "elements": [
+        {
+            "name": "epc1",
+            "type": "EPC",
+            "parameters": {
+                "retarders": [
+                    {
+                        "ID": 0,
+                        "orientation_deg": 0.0,
+                        "delta_phase_deg": 0.0
+                    },
+                    {
+                        "ID": 1,
+                        "orientation_deg": 45.0,
+                        "delta_phase_deg": 0.0
+                    },
+                    {
+                        "ID": 2,
+                        "orientation_deg": 0.0,
+                        "delta_phase_deg": 0.0
+                    },
+                    {
+                        "ID": 3,
+                        "orientation_deg": 45.0,
+                        "delta_phase_deg": 0.0
+                    }
+                ]
+            },
+            "connections": {
+                "in": "pd1-out"
+            }
+        },
+        {
+            "name": "smf1",
+            "type": "SMF",
+            "parameters": {
+                "gamma_per_w_m": 0.013,
+                "length_m": 5.0,
+                "beta2_ps2_per_km": -21.7
+            },
+            "connections": {
+                "in": "epc1-out"
+            }
+        },
+        {
+            "name": "edf1",
+            "type": "EDF",
+            "parameters": {
+                "g_0_per_m": 0.4,
+                "saturation_energy_pj": 100.0,
+                "length_m": 1.0,
+                "gain_bandwidth_thz": 4.0,
+                "noise_energy_pj_per_pass": 1.0e-6,
+                "random_seed": 20261018,
+                "noise_bandwidth_thz": 10.0
+            },
+            "connections": {
+                "in": "smf1-out"
+            }
+        },
+        {
+            "name": "oc1",
+            "type": "OC",
+            "parameters": {
+                "cavity_ratio": 0.9,
+                "power_transmittance": 0.98
+            },
+            "connections": {
+                "in": "edf1-out"
+            }
+        },
+        {
+            "name": "pd1",
+            "type": "PD",
+            "parameters": {
+                "transmission_axis_angle_deg": 45.0
+            },
+            "connections": {
+                "in": "oc1-cavity"
+            }
+        }
+    ],
+
+    "start_element":"epc1",
+
+        "instruments": [
+
+        {
+            "name": "power_output",
+            "type": "VirtualOpticalPowerVisualizer",
+            "source": "oc1-extracted",
+            "parameters": {}
+        }
+    ],
+
+    "basic_config": 
     {
-        "light_speed":299792458.0
-    },
-    
-    "init_gauss_optical_field":
-    {
-        "wave_length_nm":1550,
-        "sample_stride_fs":5.0,
-        "sample_size":16384,
-        "fwhm_time_fs":100.0,
-        "peak_power_w":1.0,
-        "polarization_angle_deg":45.0,
-        "relative_phase_deg":0.0
-    },
-    "SMF":
-    {
-        "step_length_m": 0.25
-    }
+        "scientific_constants": 
+        {
+            "light_speed": 299792458.0
+        },
+        "init_gauss_optical_field": 
+        {
+            "wave_length_nm": 1550,
+            "sample_stride_fs": 5.0,
+            "sample_size": 16384,
+            "fwhm_time_fs": 100.0,
+            "peak_power_w": 1.0,
+            "polarization_angle_deg": 45.0,
+            "relative_phase_deg": 0.0
+        },
+        "SMF": 
+        {
+            "step_length_m": 0.25
+        }
+}
 }
