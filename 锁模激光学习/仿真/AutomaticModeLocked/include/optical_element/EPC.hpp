@@ -21,6 +21,10 @@ public:
 
     //修改EPC某个通道的偏振量
     void set_retarder(int ID,double delta_phase_deg);
+
+    //返回retarder
+    const std::vector<Retarder> &retarders() const;
+
 private:
     std::vector<Retarder> m_retarders;//线性延迟器队列(从ID0到大排序)
     Eigen::Matrix<std::complex<double>,2,2> total_jones_matrix() const;//总的传播矩阵

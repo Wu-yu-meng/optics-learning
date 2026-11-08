@@ -79,6 +79,11 @@ void EPC::set_retarder(int ID, double delta_phase_deg)
     m_retarders[ID].delta_phase_deg = delta_phase_deg;
 }
 
+const std::vector<EPC::Retarder> &EPC::retarders() const
+{
+    return m_retarders;
+}
+
 Eigen::Matrix<std::complex<double>, 2, 2> EPC::total_jones_matrix() const
 {   
     //默认没有任何相位延迟

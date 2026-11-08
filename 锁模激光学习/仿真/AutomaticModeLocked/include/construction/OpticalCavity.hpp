@@ -4,6 +4,7 @@
 #include "communication/UIMessage.hpp"
 #include "optical_element/OpticalElement.hpp"
 #include "instrument/Instrument.hpp"
+#include "algorithm/RandomSearch.hpp"
 #include <memory>
 #include <string>
 #include <unordered_map>

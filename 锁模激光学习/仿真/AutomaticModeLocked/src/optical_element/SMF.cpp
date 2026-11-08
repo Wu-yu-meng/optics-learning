@@ -5,7 +5,7 @@
 #include <numbers>
 #include <stdexcept>
 #include <utility>
-#include "DFT.hpp"
+#include "algorithm/DFT.hpp"
 
 SMF::SMF(double gamma_per_w_m, double length_m, double beta2_ps2_per_km, double step_length_m)
     : m_gamma_per_w_m(gamma_per_w_m),

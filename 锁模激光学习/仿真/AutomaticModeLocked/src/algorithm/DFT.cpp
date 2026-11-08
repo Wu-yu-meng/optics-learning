@@ -1,4 +1,4 @@
-#include "DFT.hpp"
+#include "algorithm/DFT.hpp"
 #include <opencv2/core.hpp>
 #include <limits>
 #include <stdexcept>
