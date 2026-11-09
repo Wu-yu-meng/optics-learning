@@ -4,7 +4,7 @@
 #include "optical_element/EDF.hpp"
 #include "optical_element/EPC.hpp"
 #include "optical_element/OC.hpp"
-#include "optical_element/PD.hpp"
+#include "optical_element/PDISO.hpp"
 #include "instrument/VirtualOpticalPowerVisualizer.hpp"
 #include <algorithm>
 #include <functional>
@@ -80,9 +80,9 @@ OpticalCavity Builder::build(Channel<CavityMessage> &cavity_channel, Channel<UIM
                 static_cast<double>(parameters["cavity_ratio"]),
                 static_cast<double>(parameters["power_transmittance"]));
         }
-        else if (type == "PD")
+        else if (type == "PDISO")
         {
-            element.element_ptr = std::make_unique<PD>(static_cast<double>(parameters["transmission_axis_angle_deg"]));
+            element.element_ptr = std::make_unique<PDISO>(static_cast<double>(parameters["transmission_axis_angle_deg"]));
         }
         else
         {

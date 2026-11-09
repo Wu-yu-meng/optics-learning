@@ -28,7 +28,7 @@
                 ]
             },
             "connections": {
-                "in": "pd1-out"
+                "in": "pdiso1-out"
             }
         },
         {
@@ -71,8 +71,8 @@
             }
         },
         {
-            "name": "pd1",
-            "type": "PD",
+            "name": "pdiso1",
+            "type": "PDISO",
             "parameters": {
                 "transmission_axis_angle_deg": 45.0
             },

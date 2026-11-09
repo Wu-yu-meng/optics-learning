@@ -1,14 +1,14 @@
-#include "optical_element/PD.hpp"
+#include "optical_element/PDISO.hpp"
 #include <cmath>
 #include <numbers>
 #include <utility>
 
-PD::PD(double transmission_axis_angle_deg)
+PDISO::PDISO(double transmission_axis_angle_deg)
     : m_transmission_axis_angle_deg(transmission_axis_angle_deg)
 {
 }
 
-OpticalOutputs PD::propagate(const OpticalInputs & input_optical_fields)
+OpticalOutputs PDISO::propagate(const OpticalInputs & input_optical_fields)
 {
     const OpticalField& input_optical_field = input_optical_fields.at("in").get();
 
