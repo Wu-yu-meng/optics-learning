@@ -2,6 +2,7 @@
 #include "communication/Channel.hpp"
 #include "communication/UIMessage.hpp"
 #include "communication/CavityMessage.hpp"
+#include "algorithm/RandomSearch.hpp"
 #include <opencv2/core.hpp>
 #include <string>
 #include <unordered_map>
@@ -17,6 +18,8 @@ public:
 
     void set_image(const std::string &instrument_name,const std::string &window_name,const cv::Mat &image);//由画面消息更新图片
     void report_result(bool success,const std::string &reason);//显示指令执行结果
+    void set_epc_settings(const std::vector<random_search::EPCSetting> &epc_settings);//同步计算线程自动调整后的EPC滑动条
+    void report_feedback(size_t loop_count,bool is_locked,const std::vector<random_search::EPCSetting> &measured_epc_settings);//显示旧设置的判据结果
     void stop();//收到计算线程结束通知后退出UI循环
 private:
     void update();//接收整批消息，刷新各仪器的最新画面
@@ -44,6 +47,7 @@ private:
     std::vector<EPCControl> m_epc_controls;//各EPC通道的滑动条
     std::vector<std::string> m_epc_names;//控制面板中的EPC名称
     std::string m_control_window = "CavityControls";//控制面板标识
+    std::string m_feedback_status;//最近一次随机搜索的判据结果
 
     bool m_running = false;//UI请求的连续运行状态
     bool m_stop_requested = false;//已发送终止指令，等待计算线程结束

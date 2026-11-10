@@ -16,7 +16,7 @@ public:
     //返回绘制好的图片
     cv::Mat measure(size_t loop_count,const OpticalField &optical_field) override;
     
-    //直接返回电场的平方
+    //直接返回电场的平方p_x,p_y,p_total
     Eigen::Matrix<double, 3, Eigen::Dynamic> measure(const OpticalField &optical_field);
     
     void auto_size() override;//自适应画幅

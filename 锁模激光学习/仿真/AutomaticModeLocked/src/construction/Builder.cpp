@@ -178,7 +178,7 @@ OpticalCavity Builder::build(Channel<CavityMessage> &cavity_channel, Channel<UIM
     }
 
     //逆后序是忽略反馈边后的拓扑顺序，单环从start_element开始执行
-    OpticalCavity cavity(cavity_channel,ui_channel);
+    OpticalCavity cavity(cavity_channel,ui_channel,m_config);
     for (std::vector<size_t>::const_reverse_iterator index = post_order.rbegin(); index != post_order.rend(); ++index)
     {
         cavity.m_elements.push_back(std::move(elements[*index]));
@@ -235,6 +235,42 @@ OpticalCavity Builder::build(Channel<CavityMessage> &cavity_channel, Channel<UIM
             throw std::invalid_argument("[Builder]未知的仪器类型：" + type);
         }
         cavity.m_observations.push_back(std::move(observation));
+    }
+
+    //按名称绑定反馈的测量仪器和EPC，不依赖光路中的排列位置。
+    if (cavity.m_feedback_enabled)
+    {
+        const cv::FileNode feedback_config = m_config.config_["random_search"];
+        const std::string instrument_name = static_cast<std::string>(feedback_config["instrument"]);
+        cavity.m_feedback_instrument = dynamic_cast<VirtualOpticalPowerVisualizer *>(&cavity.get_instrument(instrument_name));
+        if (cavity.m_feedback_instrument == nullptr)
+        {
+            throw std::invalid_argument("[Builder]随机搜索需要光功率测量仪器：" + instrument_name);
+        }
+        for (const OpticalCavity::Observation &observation : cavity.m_observations)
+        {
+            if (observation.my_name == instrument_name)
+            {
+                cavity.m_feedback_source = observation.source;
+                break;
+            }
+        }
+
+        std::unordered_set<std::string> feedback_epc_names;
+        for (const cv::FileNode &epc_config : feedback_config["epcs"])
+        {
+            const std::string element_name = static_cast<std::string>(epc_config);
+            EPC *epc = dynamic_cast<EPC *>(&cavity.get_element(element_name));
+            if (epc == nullptr || !feedback_epc_names.emplace(element_name).second)
+            {
+                throw std::invalid_argument("[Builder]随机搜索的目标不是EPC或名称重复：" + element_name);
+            }
+            cavity.m_feedback_epcs.push_back({element_name,epc});
+        }
+        if (cavity.m_feedback_epcs.empty())
+        {
+            throw std::invalid_argument("[Builder]随机搜索未指定EPC");
+        }
     }
 
     return cavity;

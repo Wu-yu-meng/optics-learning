@@ -5,6 +5,7 @@
 #include "communication/messages/SetRunningMessage.hpp"
 #include "communication/messages/SingleStepMessage.hpp"
 #include "communication/messages/StopMessage.hpp"
+#include <cmath>
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -14,6 +15,8 @@ UIManager::UIManager(const std::string &config_path,Channel<UIMessage> &ui_chann
     : m_publisher(ui_channel.create_publisher()),m_subscriber(cavity_channel.create_subscriber())
 {
     ReJson config(config_path);
+    m_feedback_status = static_cast<int>(config.config_["random_search"]["enabled"]) != 0
+        ? "Random search: collecting measurements" : "Random search: disabled";
 
     //仪器名称只用于映射，OpenCV窗口和滑动条使用英文标识，避免Qt的Latin-1查找问题。
     size_t window_index = 0;
@@ -121,15 +124,16 @@ void UIManager::update()
         cv::imshow(window.second.window_id,window.second.image);
     }
 
-    cv::Mat control_image(140 + static_cast<int>(m_epc_names.size()) * 25,800,CV_8UC3,cv::Scalar(28,28,28));
+    cv::Mat control_image(175 + static_cast<int>(m_epc_names.size()) * 25,800,CV_8UC3,cv::Scalar(28,28,28));
     const cv::Scalar foreground(225,225,225);
     cv::putText(control_image,m_running ? "RUNNING" : "PAUSED",{25,35},cv::FONT_HERSHEY_SIMPLEX,0.7,foreground,1,cv::LINE_AA);
     cv::putText(control_image,"Space: run/pause    D: single step",{25,70},cv::FONT_HERSHEY_SIMPLEX,0.55,foreground,1,cv::LINE_AA);
     cv::putText(control_image,"A: AUTO all instruments    Q/Esc: quit",{25,105},cv::FONT_HERSHEY_SIMPLEX,0.55,foreground,1,cv::LINE_AA);
+    cv::putText(control_image,m_feedback_status,{25,140},cv::FONT_HERSHEY_SIMPLEX,0.5,foreground,1,cv::LINE_AA);
     for (size_t index = 0; index < m_epc_names.size(); ++index)
     {
         cv::putText(control_image,"EPC" + std::to_string(index) + ": " + m_epc_names[index],
-                    {25,140 + static_cast<int>(index) * 25},cv::FONT_HERSHEY_SIMPLEX,0.5,foreground,1,cv::LINE_AA);
+                    {25,175 + static_cast<int>(index) * 25},cv::FONT_HERSHEY_SIMPLEX,0.5,foreground,1,cv::LINE_AA);
     }
     cv::imshow(m_control_window,control_image);
 }
@@ -147,6 +151,39 @@ void UIManager::report_result(bool success,const std::string &reason)
     {
         std::cerr << "[UI]指令执行失败：" << reason << std::endl;
     }
+}
+
+void UIManager::set_epc_settings(const std::vector<random_search::EPCSetting> &epc_settings)
+{
+    for (const random_search::EPCSetting &setting : epc_settings)
+    {
+        for (EPCControl &control : m_epc_controls)
+        {
+            if (control.element_name == setting.element_name && control.channel == setting.channel)
+            {
+                //保留尚未发出的手动拖动；程序同步滑动条时同时更新记录，避免反向发送指令。
+                if (cv::getTrackbarPos(control.trackbar_name,m_control_window) == control.last_phase_deg)
+                {
+                    control.last_phase_deg = static_cast<int>(std::lround(setting.phase_deg));
+                    cv::setTrackbarPos(control.trackbar_name,m_control_window,control.last_phase_deg);
+                }
+                break;
+            }
+        }
+    }
+}
+
+void UIManager::report_feedback(size_t loop_count,bool is_locked,const std::vector<random_search::EPCSetting> &measured_epc_settings)
+{
+    m_feedback_status = "Search RT " + std::to_string(loop_count) + ": previous settings "
+        + (is_locked ? "PASS" : "FAIL") + "; applied new random settings";
+    std::cout << "[RandomSearch] loop=" << loop_count << " pulse_criterion=" << (is_locked ? "PASS" : "FAIL")
+              << " measured settings:";
+    for (const random_search::EPCSetting &setting : measured_epc_settings)
+    {
+        std::cout << " " << setting.element_name << ".CH" << setting.channel + 1 << "=" << setting.phase_deg;
+    }
+    std::cout << std::endl;
 }
 
 void UIManager::stop()

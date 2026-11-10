@@ -5,5 +5,4 @@ void SingleStepMessage::apply(OpticalCavity &cavity) const
 {
     cavity.set_running(false);
     cavity.run_once();
-    cavity.publish_observations();
 }

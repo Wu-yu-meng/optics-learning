@@ -2,15 +2,19 @@
 #include "communication/messages/CommandResultMessage.hpp"
 #include "communication/messages/InstrumentFrameMessage.hpp"
 #include "communication/messages/CavityStoppedMessage.hpp"
+#include "communication/messages/RandomSearchResultMessage.hpp"
+#include "communication/messages/EPCSettingsMessage.hpp"
 #include <chrono>
 #include <functional>
 #include <stdexcept>
 #include <thread>
 #include <utility>
 
-OpticalCavity::OpticalCavity(Channel<CavityMessage> &cavity_channel, Channel<UIMessage> &ui_channel)
+OpticalCavity::OpticalCavity(Channel<CavityMessage> &cavity_channel, Channel<UIMessage> &ui_channel, const ReJson &config)
     : m_subscriber(ui_channel.create_subscriber()),
-      m_publisher(cavity_channel.create_publisher())
+      m_publisher(cavity_channel.create_publisher()),
+      m_random_search(config),
+      m_feedback_enabled(static_cast<int>(config.config_["random_search"]["enabled"]) != 0)
 {
 }
 
@@ -28,7 +32,6 @@ void OpticalCavity::run()
         if (m_running)
         {
             run_once();//运行一次计算
-            publish_observations();//发布观测
         }
         else
         {
@@ -48,6 +51,11 @@ void OpticalCavity::set_running(bool running)
     m_running = running;
 }
 
+void OpticalCavity::request_observations()
+{
+    m_observations_requested = true;
+}
+
 void OpticalCavity::publish_observations()
 {
     for (Observation &observation : m_observations)
@@ -62,6 +70,7 @@ void OpticalCavity::publish_observations()
         cv::Mat image = observation.instrument_ptr->measure(m_loop,source->second);
         m_publisher.publish(std::make_shared<InstrumentFrameMessage>(observation.my_name,observation.instrument_ptr->name(),observation.source,m_loop,std::move(image)));
     }
+    m_observations_requested = false;
 }
 
 OpticalElement &OpticalCavity::get_element(const std::string &element_name)
@@ -116,10 +125,41 @@ void OpticalCavity::apply_command()
             break;//终止指令之后不再执行本批次剩余操作。
         }
     }
+
+    //返回整批指令处理后的实际设置，避免在途的手动指令与较早的自动反馈使滑动条失去同步。
+    if (!messages.empty() && !m_stopped)
+    {
+        std::vector<random_search::EPCSetting> epc_settings;
+        for (const Element &element : m_elements)
+        {
+            const EPC *epc = dynamic_cast<const EPC *>(element.element_ptr.get());
+            if (epc != nullptr)
+            {
+                for (const EPC::Retarder &retarder : epc->retarders())
+                {
+                    epc_settings.push_back({element.my_name,retarder.ID,retarder.delta_phase_deg});
+                }
+            }
+        }
+        m_publisher.publish(std::make_shared<EPCSettingsMessage>(epc_settings));
+    }
+
+    //刷新请求统一在指令处理后执行，暂停时也可以调整量程。
+    if (m_observations_requested && !m_stopped)
+    {
+        publish_observations();
+    }
 }
 
 // 腔内光运行一次
 void OpticalCavity::run_once()
+{
+    calculate_once();
+    publish_observations();
+    apply_feedback();
+}
+
+void OpticalCavity::calculate_once()
 {
 
     //按照顺序开始
@@ -143,4 +183,41 @@ void OpticalCavity::run_once()
     }
     
     m_loop++;
+}
+
+void OpticalCavity::apply_feedback()
+{
+    if (!m_feedback_enabled)
+    {
+        return;
+    }
+
+    //调用算法获取反馈
+    const Eigen::Matrix<double,3,Eigen::Dynamic> measurement = m_feedback_instrument->measure(m_optical_field_map.at(m_feedback_source));
+    std::vector<random_search::EPCSetting> epc_settings;
+    for (const FeedbackEPC &target : m_feedback_epcs)
+    {
+        for (const EPC::Retarder &retarder : target.epc->retarders())
+        {
+            epc_settings.push_back({target.element_name,retarder.ID,retarder.delta_phase_deg});
+        }
+    }
+    const random_search::FeedbackInput feedback_input{measurement,std::move(epc_settings)};
+    const std::optional<random_search::FeedbackOutput> feedback_output = m_random_search.feedback(feedback_input);
+    if (!feedback_output.has_value())
+    {
+        return;
+    }
+
+    //处理反馈
+    //本圈测量完成后统一修改，各通道的新设置从下一圈传播开始生效。
+    for (const random_search::EPCSetting &setting : feedback_output->epc_settings)
+    {
+        EPC &epc = dynamic_cast<EPC &>(get_element(setting.element_name));
+        epc.set_retarder(setting.channel,setting.phase_deg);
+    }
+
+    //用消息通知UI
+    //is_locked属于修改前的测量历史，同时保留旧设置，避免将判据结果归给新随机设置。
+    m_publisher.publish(std::make_shared<RandomSearchResultMessage>(m_loop,feedback_input.epc_settings,*feedback_output));
 }

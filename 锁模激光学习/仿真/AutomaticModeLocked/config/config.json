@@ -94,6 +94,22 @@
         }
     ],
 
+    "random_search":
+    {
+        "enabled": false,
+        "instrument": "power_output",
+        "epcs": ["epc1"],
+        "downsample_factor": 64,
+        "foreground_power_ratio": 10.0,
+        "min_pulse_peak_power_w": 1.0,
+        "lock_sample_count": 20,
+        "min_total_energy_pj": 5.0e-7,
+        "feedback_sample_count": 500,
+        "feedback_check_interval": 100,
+        "max_data_size": 100,
+        "random_seed": 20261110
+    },
+
     "basic_config": 
     {
         "scientific_constants": 
